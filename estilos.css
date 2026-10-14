@@ -3,6 +3,8 @@
    Paleta tomada del logo institucional: azul, celeste, verde, amarillo,
    rojo y rosado.
    ===================================================================== */
+[hidden] { display: none !important; }   /* "hidden" siempre oculta, aunque la clase tenga display */
+
 :root {
   /* Paleta del logo */
   --slep-azul: #0071ea;

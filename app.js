@@ -9,7 +9,7 @@
 
   const $ = (sel) => document.querySelector(sel);
   const el = {
-    chat: $("#chat"), mensajes: $("#mensajes"), bienvenida: $("#bienvenida"),
+    chat: $("#chat"), mensajes: $("#mensajes"), bienvenida: $("#bienvenida"), elaborado: $("#elaborado"),
     sugerencias: $("#sugerencias"), temas: $("#temas"), modo: $("#modo"),
     form: $("#formulario"), entrada: $("#entrada"), enviar: $("#btnEnviar"),
     sidebar: $("#sidebar"), overlay: $("#overlay")
@@ -255,7 +255,7 @@
   const AVATAR = `<div class="avatar" aria-hidden="true"><img src="favicon-48.png" alt=""></div>`;
   const COLORES = { PAL: "#f0a500", M1: "#0071ea", M2: "#ff3c4c", LEY: "#9b59d0", M3: "#4fa61a", M4: "#f0a500", M5: "#22a9dc", MINEDUC: "#0071ea", EXT: "#e0559b", DOC: "#0b8f6a", DIR: "#5b4bd1", ASI: "#d9622b", SLEP: "#0071ea" };
 
-  function ocultarBienvenida() { el.bienvenida.hidden = true; }
+  function ocultarBienvenida() { el.bienvenida.hidden = true; el.elaborado.hidden = true; }
 
   /* Las respuestas del asistente se muestran DESDE SU INICIO (la persona baja
      leyendo); los mensajes propios y el indicador de escritura van al final. */
@@ -265,7 +265,9 @@
     div.className = `msg ${rol}`;
     div.innerHTML = rol === "bot" ? `${AVATAR}<div class="burbuja">${html}</div>` : `<div class="burbuja">${html}</div>`;
     el.mensajes.appendChild(div);
-    if (rol === "user" || alFinal) {
+    if (enInicio && !el.mensajes.querySelector(".msg.user")) {
+      el.chat.scrollTop = 0;   // al abrir, la portada se ve desde arriba; la persona baja a responder
+    } else if (rol === "user" || alFinal) {
       el.chat.scrollTop = el.chat.scrollHeight;
     } else {
       // Lleva el INICIO de la respuesta a la parte superior del área del chat
@@ -1091,7 +1093,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   /* Conversación nueva = todo desde cero, incluido el perfil (rol, colegio, alcance) */
   function nuevaConversacion() {
     historial = []; wizard = null; pendiente = null;
-    el.mensajes.innerHTML = ""; el.bienvenida.hidden = false; el.chat.scrollTop = 0;
+    el.mensajes.innerHTML = ""; el.bienvenida.hidden = false; el.elaborado.hidden = false; el.chat.scrollTop = 0;
     cerrarMenu();
     iniciarConversacion();
     el.entrada.focus();
