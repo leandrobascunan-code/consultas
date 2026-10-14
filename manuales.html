@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Biblioteca de manuales · SLEP Andalién Sur</title>
+  <meta name="description" content="Lectura digital de la serie de manuales de Inteligencia Artificial para la Gestión Educativa del SLEP Andalién Sur.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0071ea">
+  <link rel="icon" type="image/png" sizes="48x48" href="img/iconos/favicon-48.png">
+  <link rel="apple-touch-icon" href="img/iconos/apple-touch-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/estilos.css">
+  <style>
+    body { overflow-y: auto; }
+    .bib { max-width: 1180px; margin: 0 auto; padding: 0 20px 60px; }
+    .bib-top {
+      position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+      padding: 12px 20px; background: color-mix(in srgb, var(--panel) 92%, transparent); backdrop-filter: blur(10px);
+    }
+    .bib-top::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--arcoiris); }
+    .bib-top img { height: 44px; background: #fff; border-radius: 10px; padding: 3px 6px; }
+    .bib-top h1 { margin: 0; font-size: 1.1rem; flex: 1; min-width: 160px; }
+    .volver {
+      display: inline-flex; align-items: center; gap: 8px; text-decoration: none; font-weight: 700; font-size: .88rem;
+      color: #fff; background: linear-gradient(135deg, #0071ea, #3abff0); padding: 9px 14px; border-radius: 12px;
+    }
+    .estante { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; margin: 24px 0; }
+    .libro {
+      --c: var(--azul); position: relative; overflow: hidden; text-align: left; cursor: pointer;
+      background: var(--panel); border: 2px solid var(--borde); border-radius: 18px; padding: 18px 16px 16px;
+      box-shadow: var(--sombra); color: var(--texto); transition: transform .14s, border-color .14s;
+    }
+    .libro::before { content: ""; position: absolute; inset: 0 0 auto 0; height: 7px; background: var(--c); }
+    .libro:hover { transform: translateY(-3px); border-color: var(--c); }
+    .libro.activo { border-color: var(--c); background: color-mix(in srgb, var(--c) 9%, var(--panel)); }
+    .libro .num { font-size: .72rem; font-weight: 800; letter-spacing: .08em; color: var(--c); text-transform: uppercase; }
+    .libro strong { display: block; font-size: 1rem; margin: 4px 0; line-height: 1.25; }
+    .libro span.sub { font-size: .8rem; color: var(--texto-2); line-height: 1.35; display: block; }
+    .lector { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 28px; align-items: start; }
+    .lector > * { min-width: 0; }
+    .contenido { overflow-wrap: break-word; }
+    .indice {
+      position: sticky; top: 90px; max-height: calc(100vh - 110px); overflow-y: auto;
+      background: var(--panel); border: 1px solid var(--borde); border-radius: 16px; padding: 14px 10px; box-shadow: var(--sombra);
+    }
+    .indice h2 { font-size: .78rem; text-transform: uppercase; letter-spacing: .06em; color: var(--texto-2); margin: 2px 8px 8px; }
+    .indice a { display: block; text-decoration: none; color: var(--texto); font-size: .84rem; line-height: 1.3; padding: 6px 8px; border-radius: 8px; border-left: 3px solid transparent; }
+    .indice a.n3 { padding-left: 20px; font-size: .8rem; color: var(--texto-2); }
+    .indice a:hover, .indice a.actual { background: var(--azul-suave); color: var(--azul); border-left-color: var(--c, var(--azul)); }
+    .herr { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 14px; }
+    .herr .btn {
+      border: 1.5px solid var(--borde); background: var(--panel); color: var(--texto); border-radius: 11px;
+      padding: 8px 13px; font-size: .84rem; font-weight: 600; text-decoration: none; display: inline-flex; gap: 6px; align-items: center;
+    }
+    .herr .btn:hover { border-color: var(--slep-celeste); color: var(--azul); }
+    .herr .btn.primario { background: linear-gradient(135deg, #0071ea, #3abff0); color: #fff; border: 0; }
+    .buscar { flex: 1; min-width: 180px; border: 1.5px solid var(--borde); background: var(--panel); color: var(--texto); border-radius: 11px; padding: 8px 12px; font: inherit; font-size: .88rem; }
+    .buscar:focus { outline: none; border-color: var(--slep-celeste); }
+    .hoja {
+      --tam: 1.04rem; background: var(--panel); border: 1px solid var(--borde); border-radius: 20px; box-shadow: var(--sombra);
+      padding: 0 clamp(18px, 5vw, 56px) 40px; overflow: hidden;
+    }
+    .portada { margin: 0 calc(-1 * clamp(18px, 5vw, 56px)) 26px; padding: 34px clamp(18px, 5vw, 56px) 28px; color: #fff; background: linear-gradient(125deg, var(--c), color-mix(in srgb, var(--c) 55%, #3abff0)); }
+    .portada .num { font-weight: 800; letter-spacing: .1em; font-size: .78rem; opacity: .9; }
+    .portada h2 { margin: 6px 0 8px; font-size: clamp(1.4rem, 3.4vw, 2.1rem); line-height: 1.15; letter-spacing: -.02em; }
+    .portada p { margin: 0; opacity: .92; }
+    .portada .meta { margin-top: 14px; font-size: .8rem; opacity: .85; }
+    .contenido { font-family: "Source Serif 4", Georgia, serif; font-size: var(--tam); line-height: 1.7; color: var(--texto); }
+    .contenido h2, .contenido h3, .contenido h4 { font-family: "Plus Jakarta Sans", system-ui, sans-serif; line-height: 1.25; scroll-margin-top: 96px; }
+    .contenido h2 { font-size: 1.45em; margin: 1.8em 0 .6em; padding-bottom: .3em; border-bottom: 3px solid color-mix(in srgb, var(--c) 35%, transparent); color: var(--c); }
+    .contenido h3 { font-size: 1.15em; margin: 1.5em 0 .5em; }
+    .contenido h4 { font-size: 1em; margin: 1.2em 0 .4em; }
+    .contenido p { margin: 0 0 .9em; }
+    .contenido ul { padding-left: 1.4em; margin: 0 0 1em; }
+    .contenido li { margin: .3em 0; }
+    .contenido li::marker { color: var(--c); }
+    .contenido a { color: var(--azul); word-break: break-word; }
+    .contenido .caja {
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif; font-size: .92em; line-height: 1.6;
+      background: color-mix(in srgb, var(--c) 7%, var(--panel)); border-left: 5px solid var(--c);
+      border-radius: 14px; padding: 14px 18px; margin: 1.1em 0;
+    }
+    .contenido .caja p:last-child, .contenido .caja ul:last-child { margin-bottom: 0; }
+    .contenido .tabla-wrap { overflow-x: auto; margin: 1em 0 1.3em; border: 1px solid var(--borde); border-radius: 12px; }
+    .contenido table { border-collapse: collapse; width: 100%; font-family: "Plus Jakarta Sans", system-ui, sans-serif; font-size: .84em; line-height: 1.45; }
+    .contenido th, .contenido td { padding: 9px 12px; border-bottom: 1px solid var(--borde); text-align: left; vertical-align: top; min-width: 110px; }
+    .contenido th { background: color-mix(in srgb, var(--c) 14%, var(--panel)); }
+    .contenido tr:nth-child(even) td { background: var(--panel-2); }
+    mark { background: var(--slep-amarillo); color: #1d2633; border-radius: 3px; padding: 0 2px; }
+    .resultado { font-size: .82rem; color: var(--texto-2); }
+    .externos h2 { font-size: 1.3rem; margin: 40px 0 6px; }
+    .externos > p { color: var(--texto-2); margin: 0 0 14px; }
+    .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+    .rec {
+      --c: #e0559b; display: block; text-decoration: none; color: var(--texto); background: var(--panel);
+      border: 1px solid var(--borde); border-left: 5px solid var(--c); border-radius: 14px; padding: 14px 16px; box-shadow: var(--sombra);
+      transition: transform .12s;
+    }
+    .rec:hover { transform: translateY(-2px); }
+    .rec small { font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--c); }
+    .rec strong { display: block; margin: 3px 0; font-size: .95rem; }
+    .rec span { font-size: .82rem; color: var(--texto-2); }
+    .indice-movil { display: none; margin-bottom: 14px; }
+    .indice-movil summary { cursor: pointer; font-weight: 700; padding: 12px 14px; background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; }
+    .arriba { position: fixed; right: 18px; bottom: 18px; width: 46px; height: 46px; border-radius: 50%; border: 0; color: #fff; background: linear-gradient(135deg, #0071ea, #3abff0); box-shadow: var(--sombra); font-size: 1.2rem; display: none; }
+    @media (max-width: 900px) {
+      .lector { grid-template-columns: minmax(0, 1fr); }
+      .indice { display: none; }
+      .indice-movil { display: block; }
+      .indice-movil .indice { display: block; position: static; max-height: 50vh; margin-top: 8px; }
+      .bib { padding: 0 14px 50px; }
+      .estante { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 16px 0; }
+      .libro { padding: 14px 12px 12px; }
+      .libro strong { font-size: .9rem; }
+      .libro span.sub { display: none; }
+      .bib-top { padding: 10px 14px; }
+      .bib-top img { display: none; }
+    }
+    @media print {
+      .bib-top, .estante, .indice, .indice-movil, .herr, .externos, .arriba { display: none !important; }
+      body { background: #fff; }
+      .lector { display: block; }
+      .hoja { box-shadow: none; border: 0; padding: 0; }
+      .portada { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    }
+  </style>
+</head>
+<body>
+  <header class="bib-top">
+    <a class="volver" href="./">← Volver al asistente</a>
+    <h1>📚 Biblioteca de manuales</h1>
+    <img src="img/logo-slep.png" alt="SLEP Andalién Sur">
+  </header>
+
+  <div class="bib">
+    <section class="estante" id="estante" aria-label="Manuales"></section>
+
+    <section class="lector" id="lector">
+      <aside class="indice" id="indice" aria-label="Índice del manual"></aside>
+      <article>
+        <details class="indice-movil" id="indiceMovil"><summary>☰ Índice del manual</summary><div class="indice" id="indiceM"></div></details>
+        <div class="herr">
+          <input type="search" class="buscar" id="buscar" placeholder="🔍 Buscar en este manual…" aria-label="Buscar en este manual">
+          <span class="resultado" id="resultado"></span>
+          <button class="btn" id="menos" title="Letra más pequeña" aria-label="Letra más pequeña">A−</button>
+          <button class="btn" id="mas" title="Letra más grande" aria-label="Letra más grande">A+</button>
+          <button class="btn" id="imprimir">🖨️ Imprimir / PDF</button>
+          <a class="btn primario" id="descargar" download>⬇ Descargar Word</a>
+        </div>
+        <div class="hoja" id="hoja"></div>
+      </article>
+    </section>
+
+    <section class="externos">
+      <h2>🔗 Documentos oficiales externos sobre IA en educación</h2>
+      <p>Fuentes confiables para profundizar. Abren en el sitio oficial de cada institución.</p>
+      <div class="rec-grid">
+        <a class="rec" style="--c:#0071ea" href="https://ciudadaniadigital.mineduc.cl/recurso/nueva-guia-para-docentes-potencia-el-aprendizaje/" target="_blank" rel="noopener"><small>MINEDUC · 2025</small><strong>PotencIA el aprendizaje</strong><span>Preguntas para la reflexión y práctica de la IA generativa en contextos educativos.</span></a>
+        <a class="rec" style="--c:#0071ea" href="https://ciudadaniadigital.mineduc.cl/recurso/guia-para-docentes-como-usar-chatgpt-para-potenciar-el-aprendizaje-activo/" target="_blank" rel="noopener"><small>MINEDUC · 2023</small><strong>Cómo usar ChatGPT para el aprendizaje activo</strong><span>Guía para docentes de Ciudadanía Digital.</span></a>
+        <a class="rec" style="--c:#0071ea" href="https://ciudadaniadigital.mineduc.cl/ia/" target="_blank" rel="noopener"><small>MINEDUC</small><strong>Portal de IA · Ciudadanía Digital</strong><span>Recursos, webinars, ChatSP, HumanIA y material para el aula.</span></a>
+        <a class="rec" style="--c:#4fa61a" href="https://desarrollodocenteenlinea.cpeip.cl" target="_blank" rel="noopener"><small>CPEIP</small><strong>Cursos de IA para docentes y directivos</strong><span>Formación oficial gratuita en Desarrollo Docente en Línea.</span></a>
+        <a class="rec" style="--c:#4fa61a" href="https://ciudadaniadigital.mineduc.cl/recurso/marco-orientador-de-competencias-digitales-docentes/" target="_blank" rel="noopener"><small>MINEDUC · CPEIP · UNESCO</small><strong>Marco Orientador de Competencias Digitales Docentes</strong><span>Tres dimensiones y cuatro niveles, alineado al Marco para la Buena Enseñanza.</span></a>
+        <a class="rec" style="--c:#9b59d0" href="https://www.bcn.cl/leychile/navegar?idNorma=1208650" target="_blank" rel="noopener"><small>BCN · Ley Chile</small><strong>Ley N.º 21.719 de datos personales</strong><span>Texto oficial. Plena vigencia: 1 de diciembre de 2026.</span></a>
+        <a class="rec" style="--c:#9b59d0" href="https://wikiguias.digital.gob.cl/datos-personales/guia-practica-implementacion-nueva-ley-datos-personales" target="_blank" rel="noopener"><small>Gobierno Digital</small><strong>Guía práctica de la nueva Ley de datos personales</strong><span>Implementación en la Administración del Estado.</span></a>
+        <a class="rec" style="--c:#9b59d0" href="https://www.bcn.cl/leychile/navegar?idNorma=1210664" target="_blank" rel="noopener"><small>BCN · 2025</small><strong>Política Nacional de IA (actualización)</strong><span>Decreto N.º 12, publicado el 28 de enero de 2025.</span></a>
+        <a class="rec" style="--c:#e0559b" href="https://unesdoc.unesco.org/ark:/48223/pf0000389227_spa" target="_blank" rel="noopener"><small>UNESCO · 2023</small><strong>Guía para el uso de IA generativa en educación e investigación</strong><span>Enfoque centrado en el ser humano, privacidad y edad mínima.</span></a>
+        <a class="rec" style="--c:#e0559b" href="https://unesdoc.unesco.org/ark:/48223/pf0000393813" target="_blank" rel="noopener"><small>UNESCO · 2024</small><strong>Marco de competencias en IA para docentes</strong><span>15 competencias en 5 dimensiones; niveles adquirir, profundizar y crear.</span></a>
+      </div>
+    </section>
+  </div>
+  <button class="arriba" id="arriba" aria-label="Volver arriba">↑</button>
+
+  <script src="js/manuales.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    try { if (localStorage.getItem("slep-ia-tema") === "dark") document.documentElement.setAttribute("data-theme", "dark"); } catch (e) {}
+    const $ = (s) => document.querySelector(s);
+    const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const CARPETA_DOCX = "manuales/";   // carpeta donde están los .docx
+    let actual = null, tam = 1.04, original = "";
+    try { tam = parseFloat(localStorage.getItem("slep-ia-letra")) || 1.04; } catch (e) {}
+
+    $("#estante").innerHTML = MANUALES.map((m) =>
+      `<button class="libro" style="--c:${m.color}" data-n="${m.n}"><span class="num">Manual ${m.n}</span><strong>${esc(m.titulo)}</strong><span class="sub">${esc(m.sub)}</span></button>`).join("");
+
+    function abrir(n, seccion) {
+      const m = MANUALES.find((x) => x.n === n) || MANUALES[0];
+      actual = m;
+      document.querySelectorAll(".libro").forEach((b) => b.classList.toggle("activo", +b.dataset.n === m.n));
+      const toc = `<h2>Contenido</h2>` + m.toc.map((t) => `<a class="n${t.n}" href="#m${m.n}/${t.id}" data-id="${t.id}">${esc(t.t)}</a>`).join("");
+      $("#indice").innerHTML = toc; $("#indiceM").innerHTML = toc;
+      $("#indice").style.setProperty("--c", m.color);
+      const i = m.html.indexOf("<h2");
+      original = i > 0 ? m.html.slice(i) : m.html;
+      $("#hoja").style.setProperty("--c", m.color);
+      $("#hoja").style.setProperty("--tam", tam + "rem");
+      $("#hoja").innerHTML =
+        `<header class="portada" style="--c:${m.color}"><div class="num">SERIE DE MANUALES · IA PARA LA GESTIÓN EDUCATIVA · MANUAL ${m.n}</div>
+         <h2>${esc(m.titulo)}</h2><p>${esc(m.sub)}</p>
+         <div class="meta">Servicio Local de Educación Pública Andalién Sur · Documento de trabajo · Propuesta técnica · 2026</div></header>
+         <div class="contenido" id="contenido">${original}</div>`;
+      $("#descargar").href = CARPETA_DOCX + m.docx;
+      $("#descargar").setAttribute("download", m.docx);
+      $("#buscar").value = ""; $("#resultado").textContent = "";
+      document.title = `Manual ${m.n}: ${m.titulo} · SLEP Andalién Sur`;
+      if (seccion) { const h = document.getElementById(seccion); if (h) { h.scrollIntoView(); return; } }
+      $("#lector").scrollIntoView({ behavior: "smooth" });
+    }
+
+    function desdeHash() {
+      const m = location.hash.match(/^#m(\d)(?:\/(.+))?$/);
+      const n = m ? +m[1] : 1;
+      if (!actual || actual.n !== n) abrir(n, m && m[2] ? decodeURIComponent(m[2]) : null);
+      else if (m && m[2]) { const h = document.getElementById(decodeURIComponent(m[2])); if (h) h.scrollIntoView({ behavior: "smooth" }); }
+    }
+
+    $("#estante").addEventListener("click", (e) => {
+      const b = e.target.closest(".libro"); if (!b) return;
+      if (location.hash === "#m" + b.dataset.n) abrir(+b.dataset.n); else location.hash = "m" + b.dataset.n;
+    });
+    document.addEventListener("click", (e) => {
+      const a = e.target.closest(".indice a"); if (!a) return;
+      $("#indiceMovil").open = false;
+    });
+    window.addEventListener("hashchange", desdeHash);
+
+    // Búsqueda dentro del manual
+    let temp;
+    $("#buscar").addEventListener("input", (e) => {
+      clearTimeout(temp);
+      temp = setTimeout(() => {
+        const q = e.target.value.trim();
+        const cont = $("#contenido");
+        cont.innerHTML = original;
+        if (q.length < 3) { $("#resultado").textContent = ""; return; }
+        const re = new RegExp("(" + q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + ")", "gi");
+        let total = 0;
+        const recorrer = (nodo) => {
+          if (nodo.nodeType === 3) {
+            if (!re.test(nodo.data)) return; re.lastIndex = 0;
+            const span = document.createElement("span");
+            span.innerHTML = esc(nodo.data).replace(re, "<mark>$1</mark>");
+            nodo.replaceWith(span);
+          } else if (nodo.nodeType === 1 && !/^(SCRIPT|STYLE|MARK)$/.test(nodo.tagName)) {
+            [...nodo.childNodes].forEach(recorrer);
+          }
+        };
+        recorrer(cont);
+        observarTitulos();
+        total = cont.querySelectorAll("mark").length;
+        $("#resultado").textContent = total ? `${total} coincidencia${total > 1 ? "s" : ""}` : "Sin resultados";
+        const primero = cont.querySelector("mark"); if (primero) primero.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    });
+
+    function letra(d) {
+      tam = Math.min(1.5, Math.max(.85, +(tam + d).toFixed(2)));
+      $("#hoja").style.setProperty("--tam", tam + "rem");
+      try { localStorage.setItem("slep-ia-letra", tam); } catch (e) {}
+    }
+    $("#mas").addEventListener("click", () => letra(.08));
+    $("#menos").addEventListener("click", () => letra(-.08));
+    $("#imprimir").addEventListener("click", () => window.print());
+
+    // Índice: marca la sección visible
+    const obs = "IntersectionObserver" in window ? new IntersectionObserver((ents) => {
+      ents.forEach((en) => {
+        if (!en.isIntersecting) return;
+        document.querySelectorAll(".indice a").forEach((a) => a.classList.toggle("actual", a.dataset.id === en.target.id));
+      });
+    }, { rootMargin: "-90px 0px -70% 0px" }) : null;
+    const observarTitulos = () => { if (obs) { obs.disconnect(); document.querySelectorAll("#contenido h2, #contenido h3").forEach((h) => obs.observe(h)); } };
+    new MutationObserver(observarTitulos).observe($("#hoja"), { childList: true });
+
+    window.addEventListener("scroll", () => { $("#arriba").style.display = scrollY > 600 ? "block" : "none"; });
+    $("#arriba").addEventListener("click", () => scrollTo({ top: 0, behavior: "smooth" }));
+
+    desdeHash();
+    scrollTo(0, 0);
+  })();
+  </script>
+</body>
+</html>

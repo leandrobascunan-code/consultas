@@ -1,20 +1,22 @@
 /* Service worker: permite instalar la app y usarla sin conexión (modo guías).
    Al publicar cambios, suba el número de VERSION para que los usuarios
    reciban la versión nueva. */
-const VERSION = "asistente-slep-v4";
+const VERSION = "asistente-slep-v5";
 const ARCHIVOS = [
   "./",
   "index.html",
+  "manuales.html",
+  "js/manuales.js",
   "manifest.webmanifest",
-  "estilos.css",
-  "config.js",
-  "conocimiento.js",
-  "app.js",
-  "logo-slep.png",
-  "ayuda.jpg",
-  "icon-192.png",
-  "icon-512.png",
-  "favicon-48.png"
+  "css/estilos.css",
+  "js/config.js",
+  "js/conocimiento.js",
+  "js/app.js",
+  "img/logo-slep.png",
+  "img/ayuda.jpg",
+  "img/iconos/icon-192.png",
+  "img/iconos/icon-512.png",
+  "img/iconos/favicon-48.png"
 ];
 
 self.addEventListener("install", (e) => {

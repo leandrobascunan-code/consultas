@@ -18,7 +18,8 @@ const FUENTES = {
   M4: "Manual 4 · Prompts efectivos",
   M5: "Manual 5 · Soporte técnico",
   LEY: "Ley N.º 21.719 · Protección de datos personales",
-  MINEDUC: "MINEDUC · PotencIA el aprendizaje (2025)"
+  MINEDUC: "MINEDUC · PotencIA el aprendizaje (2025)",
+  EXT: "Fuentes oficiales externas (MINEDUC, CPEIP, UNESCO)"
 };
 
 const CONOCIMIENTO = [
@@ -37,6 +38,15 @@ const CONOCIMIENTO = [
 Están dirigidos a directivos, jefaturas de UTP, equipos técnico-pedagógicos, convivencia, PIE, docentes y asistentes de la educación.
 
 **Importante:** la serie es una *propuesta técnica*, no lineamientos vigentes. Debe leerse en modo propositivo y no normativo hasta que el Servicio dicte instrucciones formales.`
+  },
+  {
+    id: "dependencia", fuente: "M1", titulo: "Establecimientos de dependencia pública (no municipal)",
+    claves: ["municipal", "dependencia", "sostenedor", "traspaso", "municipio", "servicio local", "educacion publica", "21040", "slep"],
+    texto: `Los establecimientos que administra un Servicio Local son de **dependencia pública, no municipal**. Con la entrada en vigencia de la **Ley N.º 21.040**, la administración se traspasó desde los municipios al Servicio Local, que pasó a ser el **sostenedor**.
+
+La distinción no es solo terminológica: cambia **quién responde por la gestión**, quién dicta las instrucciones, ante quién se rinde cuenta y cómo circula la información entre el nivel central y cada establecimiento.
+
+Por eso, al escribir un prompt, conviene decir **"establecimiento de educación pública chileno"** y no "establecimiento municipal". Los ejemplos de la serie no se fijan en una comuna determinada: deben ser reconocibles tanto en un liceo urbano de alta matrícula como en una escuela rural pequeña, porque ambas realidades conviven en el territorio.`
   },
   {
     id: "que-es-ia", fuente: "M1", titulo: "¿Qué es la IA y la IA generativa?",
@@ -278,7 +288,7 @@ Además: investigación sumaria de Contraloría si hay responsabilidades individ
     claves: ["principios eticos", "etica", "uso etico", "transparencia", "equidad", "responsabilidad humana", "veracidad"],
     texto: `1. **Transparencia:** informar cuándo y cómo se usó IA.
 2. **Privacidad y protección de datos:** no ingresar datos sensibles en plataformas de IA generativa.
-3. **Equidad e inclusión:** que no refuerce sesgos ni invisibilice la realidad rural de Florida y Hualqui.
+3. **Equidad e inclusión:** que no refuerce sesgos ni omita la realidad rural presente en el territorio.
 4. **Responsabilidad humana:** la decisión final siempre es humana.
 5. **Veracidad y precisión:** toda cita normativa, cifra o decreto se contrasta con la fuente oficial.
 
@@ -327,7 +337,7 @@ Son coherentes con los seis principios del MINEDUC (2025): potenciar lo humano, 
 - **Documentos completos:** extraer solo el fragmento necesario, ya anonimizado.
 
 **❌ Incorrecto:** "Tengo un estudiante, Matías González, de 6° B, con TDAH…"
-**✅ Correcto:** "Actúa como jefe de UTP de un establecimiento municipal chileno. Necesito la estructura de un informe de derivación a dupla psicosocial para un estudiante de segundo ciclo con dificultades de atención… No inventes datos: deja campos por completar."`
+**✅ Correcto:** "Actúa como jefe de UTP de un establecimiento de educación pública chileno. Necesito la estructura de un informe de derivación a dupla psicosocial para un estudiante de segundo ciclo con dificultades de atención… No inventes datos: deja campos por completar."`
   },
   {
     id: "verificar", fuente: "M2", titulo: "Protocolo de verificación en cuatro pasos",
@@ -393,7 +403,7 @@ Conviene empezar por los primeros e ir avanzando a medida que se consolida crite
 - **Rúbricas:** criterios y niveles de logro.
 - **Ítems:** preguntas con distractores plausibles.
 - **Adaptación de textos:** bajar complejidad léxica sin bajar exigencia cognitiva.
-- **Contextualización local:** situaciones con el río Biobío, el comercio de Chiguayante, la ruralidad de Florida.
+- **Contextualización local:** situaciones con referencias reconocibles en el entorno del establecimiento: el río Biobío, el comercio del sector, la actividad agrícola o forestal de la zona.
 - **Retroalimentación:** formulaciones descriptivas desde la rúbrica.
 
 **Límites:** la IA no conoce con precisión las **Bases Curriculares** → verifique todo OA en el currículum oficial. Generar la rúbrica es delegable; **evaluar con ella no**.
@@ -552,7 +562,7 @@ Escribir un buen prompt obliga a explicitar para qué, para quién, con qué lí
     claves: ["estructura", "componentes", "rol", "tarea", "contexto", "formato", "restricciones", "criterio de calidad", "plantilla"],
     texto: `| Componente | Ejemplo |
 |---|---|
-| **Rol** | "Actúa como jefe de UTP de un establecimiento municipal chileno…" |
+| **Rol** | "Actúa como jefe de UTP de un establecimiento de educación pública chileno…" |
 | **Tarea** | "…diseña una rúbrica analítica…" |
 | **Contexto** | "…para 6.° básico, Lenguaje, curso de 32 estudiantes heterogéneo en escritura…" |
 | **Formato** | "…en tabla, cuatro criterios y tres niveles de logro." |
@@ -683,6 +693,122 @@ La consola del navegador se abre con **F12**.`
 **Continuidad:** organización de GitHub, planilla y Apps Script con al menos dos responsables; subdominio institucional; clave de IA institucional; \`docs/MANUAL.md\` actualizado.
 
 **Cuándo NO usar esta arquitectura:** si ya existe un sistema institucional, si el volumen es territorial, si los datos son especialmente sensibles (salud, vulneración) o si no hay quién la mantenga.`
+  },
+
+  /* ------------------- FUENTES OFICIALES EXTERNAS -------------------
+     Verificadas en los sitios oficiales en octubre de 2026.
+     Revise los enlaces al menos una vez al año. */
+  {
+    id: "ext-potencia", fuente: "EXT", titulo: "Guía MINEDUC «PotencIA el aprendizaje» (2025)",
+    claves: ["potencia", "potencia el aprendizaje", "guia mineduc", "mineduc", "centro de innovacion", "orientaciones mineduc", "guia oficial"],
+    texto: `El **Ministerio de Educación** lanzó el 12 de marzo de 2025 la guía **«PotencIA el aprendizaje: Preguntas para la reflexión y práctica de la Inteligencia Artificial generativa en contextos educativos»**, elaborada por el **Centro de Innovación**.
+
+- No entrega respuestas cerradas: propone **preguntas para orientar la reflexión del equipo pedagógico** sobre cómo usar la IA de forma **creativa, crítica y responsable**.
+- Se basa en potenciar lo que nos hace humanos y en un uso seguro de la IA.
+- Junto con ella se anunciaron **webinars y talleres regionales**, un **curso para directivos** sobre IA en la gestión educativa (con Fundación Chile y CENIA), un espacio temático de IA en **educarchile** y cursos del **CPEIP**.
+
+🔗 [Guía en Ciudadanía Digital](https://ciudadaniadigital.mineduc.cl/recurso/nueva-guia-para-docentes-potencia-el-aprendizaje/)
+🔗 [Portal de IA del MINEDUC](https://ciudadaniadigital.mineduc.cl/ia/)
+🔗 [Noticia oficial (mineduc.cl)](https://www.mineduc.cl/mineduc-lanza-guia-para-potenciar-el-aprendizaje-integrando-el-uso-de-la-inteligencia-artificial-en-contextos-educativos/)`
+  },
+  {
+    id: "ext-chatgpt", fuente: "EXT", titulo: "Guía MINEDUC: Cómo usar ChatGPT para el aprendizaje activo (2023)",
+    claves: ["guia chatgpt", "aprendizaje activo", "chatgpt mineduc", "2023", "guia para docentes"],
+    texto: `Publicada por el MINEDUC en **2023**, entrega un marco de acción, recursos y orientaciones para equipos docentes, estudiantes y familias sobre el uso de ChatGPT para **potenciar el aprendizaje activo**, en el marco de la **Ciudadanía Digital**.
+
+Sus preguntas de verificación se usan en el Manual 2: ¿la respuesta es precisa?, ¿cómo compruebo su veracidad?, ¿es correcta en cualquier contexto?, ¿reproduce estereotipos?
+
+🔗 [Guía en Ciudadanía Digital](https://ciudadaniadigital.mineduc.cl/recurso/guia-para-docentes-como-usar-chatgpt-para-potenciar-el-aprendizaje-activo/)`
+  },
+  {
+    id: "ext-cpeip", fuente: "EXT", titulo: "Cursos de IA del CPEIP para docentes y directivos",
+    claves: ["cpeip", "curso", "cursos", "capacitacion", "formacion", "taller", "talleres", "perfeccionamiento", "desarrollo profesional", "gratis", "postular"],
+    texto: `El **CPEIP** (Centro de Perfeccionamiento, Experimentación e Investigaciones Pedagógicas del MINEDUC) desarrolla un **Plan de Formación en Inteligencia Artificial en Educación**, en concordancia con el Marco de Competencias Digitales elaborado con UNESCO. Entre sus acciones formativas:
+
+- **Introducción a la Inteligencia Artificial y su uso educativo:** qué es la IA, oportunidades y desafíos, herramientas y cómo escribir buenas instrucciones (prompts).
+- **Talleres para incorporar IA a la labor docente** (ChatGPT, MagicSchool, Gemini).
+- **Talleres de IA para evaluar y retroalimentar** aprendizajes (evaluación formativa).
+- **Comunidades Virtuales de Aprendizaje:** uso de la IA para la preparación de la enseñanza (Dominio A del Marco para la Buena Enseñanza).
+- **Mejorando la gestión escolar con IA:** análisis de datos y toma de decisiones, para equipos directivos.
+
+Las convocatorias cambian cada año: revise las vigentes en la plataforma oficial.
+🔗 [Desarrollo Docente en Línea (CPEIP)](https://desarrollodocenteenlinea.cpeip.cl)
+🔗 [Plan de formación en IA del CPEIP](https://cpeip.cl/cpeip-liderando-la-formacion-docente-en-inteligencia-artificial/)`
+  },
+  {
+    id: "ext-competencias-digitales", fuente: "EXT", titulo: "Marco Orientador de Competencias Digitales Docentes (MINEDUC–UNESCO)",
+    claves: ["competencias digitales", "marco orientador", "competencias docentes", "marco competencias", "buena ensenanza", "unesco santiago"],
+    texto: `Elaborado por el **MINEDUC** (Centro de Innovación y CPEIP) con apoyo de **UNESCO Santiago**, busca fortalecer las competencias digitales de docentes, directivos y otros profesionales de la educación, **alineado con el Marco para la Buena Enseñanza**.
+
+- **Dimensiones:** compromiso profesional, competencias pedagógicas y ciudadanía digital de los estudiantes.
+- **Progresión en cuatro niveles**, formativa, gradual y contextualizada.
+
+🔗 [Marco Orientador (Ciudadanía Digital)](https://ciudadaniadigital.mineduc.cl/recurso/marco-orientador-de-competencias-digitales-docentes/)`
+  },
+  {
+    id: "ext-recursos-mineduc", fuente: "EXT", titulo: "Recursos MINEDUC de IA para el aula y las familias",
+    claves: ["recursos", "chatsp", "sumo primero", "matematica", "humania", "rural", "familias", "kit", "alfabetizacion digital", "clic a clic", "ensena chile"],
+    texto: `- **ChatSP:** asistente con IA generativa para docentes de **1° a 6° básico**, experto en los textos **Sumo Primero** de matemática (planificación, secuencias, estrategias). Plan Nacional Sumo Primero con el Centro de Modelamiento Matemático de la U. de Chile. 🔗 [chat.sumoprimero.cl](https://chat.sumoprimero.cl/)
+- **HumanIA:** propuesta de enseñanza sobre IA con guías para docentes y estudiantes de **educación media**. 🔗 [Ver recurso](https://ciudadaniadigital.mineduc.cl/recurso/humania-propuesta-de-ensenanza-sobre-inteligencia-artificial/)
+- **«Tejiendo redes de aprendizaje», módulo IA:** recursos abiertos MINEDUC–Enseña Chile con enfoque **territorial**, pensados para la educación **rural**. 🔗 [Ver recurso](https://ciudadaniadigital.mineduc.cl/recurso/alfabetizacion-digital-en-la-educacion-rural-inteligencia-artificial/)
+- **Kit de Ciudadanía Digital para familias:** videos, cartillas y módulos sobre uso responsable de la tecnología. 🔗 [Ver kit](https://ciudadaniadigital.mineduc.cl/recurso/recursos-para-trabajar-con-familias-en-el-desarrollo-de-la-ciudadania-digital/)
+- **Clic a Clic:** set de alfabetización digital para la trayectoria escolar. 🔗 [Ver set](https://ciudadaniadigital.mineduc.cl/recurso/clic-a-clic-set-de-alfabetizacion-digital/)`
+  },
+  {
+    id: "ext-unesco-guia", fuente: "EXT", titulo: "UNESCO: Guía para el uso de IA generativa en educación e investigación",
+    claves: ["unesco", "guia unesco", "ia generativa", "regulacion", "edad", "limite de edad", "internacional", "centrado en el ser humano"],
+    texto: `Primera guía mundial de la **UNESCO** sobre IA generativa en educación (2023). Propone un enfoque **centrado en el ser humano** y recomienda, entre otras medidas:
+
+- **Proteger la privacidad de los datos** de los usuarios.
+- Establecer un **límite de edad** para las conversaciones independientes de estudiantes con plataformas de IA generativa, con un enfoque adecuado a la edad.
+- Que las instituciones **validen ética y pedagógicamente** las herramientas antes de usarlas.
+- Resguardar la **agencia humana**: la IA apoya, no reemplaza, el juicio de docentes y estudiantes.
+
+Es coherente con la pauta de evaluación de herramientas del Manual 3 (edad mínima, datos, transparencia).
+🔗 [Guía en español (UNESDOC)](https://unesdoc.unesco.org/ark:/48223/pf0000389227_spa)`
+  },
+  {
+    id: "ext-unesco-competencias", fuente: "EXT", titulo: "UNESCO: Marcos de competencias en IA para docentes y estudiantes",
+    claves: ["competencias ia", "marco unesco", "competencias docentes ia", "competencias estudiantes", "dimensiones", "adquirir profundizar crear"],
+    texto: `**Para docentes (UNESCO, 2024):** 15 competencias en **5 dimensiones**:
+1. Mentalidad centrada en el ser humano.
+2. Ética de la IA.
+3. Fundamentos y aplicaciones de la IA.
+4. Pedagogía con IA.
+5. IA para el desarrollo profesional.
+
+Con **tres niveles de progresión: adquirir, profundizar y crear**. Se funda en proteger los derechos de los docentes, potenciar la agencia humana y promover la sostenibilidad.
+
+**Para estudiantes:** 4 dimensiones: mentalidad centrada en el ser humano, ética de la IA, técnicas y aplicaciones de la IA, y diseño de sistemas de IA. UNESCO advierte no usar la IA para "resolver" problemas estructurales como la falta de docentes o de infraestructura.
+
+🔗 [Marco para docentes (en español)](https://unesdoc.unesco.org/ark:/48223/pf0000393813)
+🔗 [Resumen de ambos marcos](https://www.unesco.org/en/articles/what-you-need-know-about-unescos-new-ai-competency-frameworks-students-and-teachers)`
+  },
+  {
+    id: "ext-politica-nacional", fuente: "EXT", titulo: "Política Nacional de Inteligencia Artificial de Chile (actualización 2024)",
+    claves: ["politica nacional", "decreto 12", "minciencia", "politica de ia", "estrategia nacional", "chile ia", "gobierno"],
+    texto: `La **Política Nacional de IA** (Ministerio de Ciencia, 2021) fue actualizada mediante el **Decreto N.º 12**, publicado en el Diario Oficial el **28 de enero de 2025**.
+
+En el ámbito escolar plantea, entre otros objetivos:
+- Promover habilidades para el **uso, desarrollo, comprensión y análisis crítico** de la IA en el sistema escolar.
+- Generar **recursos de aprendizaje** sobre IA para el contexto educativo.
+- Fortalecer los conocimientos TIC en las **bases curriculares**, incluido el uso ético de la IA.
+- Formar a docentes en pensamiento computacional, programación y robótica.
+
+🔗 [Decreto 12 en LeyChile (BCN)](https://www.bcn.cl/leychile/navegar?idNorma=1210664)`
+  },
+  {
+    id: "ext-donde-buscar", fuente: "EXT", titulo: "¿Dónde buscar información confiable sobre IA en educación?",
+    claves: ["fuentes confiables", "donde buscar", "enlaces", "sitios oficiales", "recursos oficiales", "informacion oficial", "links", "bibliografia"],
+    texto: `**Fuentes oficiales recomendadas:**
+- **MINEDUC · Ciudadanía Digital (IA):** 🔗 [ciudadaniadigital.mineduc.cl/ia](https://ciudadaniadigital.mineduc.cl/ia/)
+- **CPEIP · cursos gratuitos:** 🔗 [desarrollodocenteenlinea.cpeip.cl](https://desarrollodocenteenlinea.cpeip.cl)
+- **Biblioteca del Congreso Nacional (leyes):** 🔗 [bcn.cl/leychile](https://www.bcn.cl/leychile)
+- **Ley 21.719 de datos personales:** 🔗 [Texto en LeyChile](https://www.bcn.cl/leychile/navegar?idNorma=1208650)
+- **Guía de la Secretaría de Gobierno Digital sobre la nueva ley de datos:** 🔗 [wikiguias.digital.gob.cl](https://wikiguias.digital.gob.cl/datos-personales/guia-practica-implementacion-nueva-ley-datos-personales)
+- **UNESCO · IA en educación:** 🔗 [unesco.org](https://www.unesco.org/en/digital-education/artificial-intelligence)
+
+**Regla práctica:** si una norma, cifra o recurso no aparece en un sitio oficial, no se usa en un documento institucional.`
   }
 ];
 
@@ -691,7 +817,7 @@ La consola del navegador se abre con **F12**.`
    ===================================================================== */
 const TIPOS_MATERIAL = [
   { id: "guia",        nombre: "Guía de trabajo",           rol: "docente con experiencia en diversificación de la enseñanza en el sistema escolar chileno", tarea: "diseña una guía de trabajo", formato: "título, objetivo en lenguaje para estudiantes, instrucciones paso a paso, 3 a 5 actividades de dificultad progresiva y una pregunta de cierre metacognitiva" },
-  { id: "rubrica",     nombre: "Rúbrica de evaluación",     rol: "jefe de UTP de un establecimiento público chileno con experiencia en evaluación formativa", tarea: "diseña una rúbrica analítica", formato: "tabla con cuatro criterios y tres niveles de logro (Logrado, En desarrollo, Por lograr), más una columna con sugerencia de retroalimentación para el nivel más bajo" },
+  { id: "rubrica",     nombre: "Rúbrica de evaluación",     rol: "jefe de UTP de un establecimiento de educación pública chileno con experiencia en evaluación formativa", tarea: "diseña una rúbrica analítica", formato: "tabla con cuatro criterios y tres niveles de logro (Logrado, En desarrollo, Por lograr), más una columna con sugerencia de retroalimentación para el nivel más bajo" },
   { id: "prueba",      nombre: "Prueba / banco de ítems",   rol: "especialista en evaluación educativa del sistema escolar chileno", tarea: "genera 10 preguntas de selección múltiple de cuatro alternativas", formato: "cada pregunta con sus alternativas y, al lado, qué error conceptual frecuente representa cada distractor; alternativas de extensión similar y sin 'todas/ninguna de las anteriores'" },
   { id: "clase",       nombre: "Planificación de clase",    rol: "docente experimentado del sistema escolar chileno", tarea: "diseña la secuencia de una clase de 90 minutos", formato: "inicio, desarrollo y cierre con tiempos, actividades, preguntas clave y evidencia de aprendizaje; al menos 60 % de trabajo activo de los estudiantes" },
   { id: "diversificar",nombre: "Diversificar un material",  rol: "docente con experiencia en diversificación de la enseñanza (DUA) en el sistema escolar chileno", tarea: "genera tres versiones del material que pegaré al final", formato: "VERSIÓN A con mayor andamiaje (pasos desglosados, ejemplo resuelto, vocabulario clave); VERSIÓN B estándar; VERSIÓN C con mayor demanda cognitiva. Las tres evalúan el mismo aprendizaje y se ven similares entre sí" },
@@ -701,3 +827,34 @@ const TIPOS_MATERIAL = [
 ];
 
 const NIVELES = ["Educación Parvularia", "1° a 4° básico", "5° a 8° básico", "1° a 2° medio", "3° a 4° medio", "Técnico-Profesional", "Educación de adultos"];
+
+/* Referencias locales SUGERIDAS para contextualizar material por comuna.
+   Son puntos de partida: cada docente puede reemplazarlas por las del
+   entorno real de su establecimiento. Edite o agregue según necesidad. */
+const COMUNAS = {
+  "Concepción": {
+    descripcion: "capital regional, con barrios residenciales, comercio, servicios, universidades y también sectores periurbanos",
+    referencias: ["el río Biobío y el río Andalién", "el cerro Caracol y el Parque Ecuador", "la laguna Las Tres Pascualas", "el comercio del centro y las ferias", "el transporte público y el Biotrén", "las universidades y la vida de barrio"]
+  },
+  "Chiguayante": {
+    descripcion: "comuna ribereña del Biobío, entre cerros de la cordillera de la Costa, con barrios residenciales y tradición textil",
+    referencias: ["la ribera del río Biobío", "los cerros y quebradas con bosque", "el Biotrén y la conexión con Concepción", "su historia textil", "el comercio local y las ferias", "la vida de barrio"]
+  },
+  "Florida": {
+    descripcion: "comuna del secano interior de la cordillera de la Costa, con sectores rurales, agricultura familiar y actividad forestal",
+    referencias: ["la agricultura familiar y las huertas", "la actividad forestal y el cuidado del bosque nativo", "los sectores rurales como Copiulemu", "los caminos rurales y el transporte interurbano", "las ferias y productos locales", "la prevención de incendios forestales"]
+  },
+  "Hualqui": {
+    descripcion: "comuna ribereña del Biobío de origen histórico, con zona urbana y extensos sectores rurales, agrícolas y forestales",
+    referencias: ["la ribera del río Biobío", "los sectores rurales como Talcamávida y Quilacoya", "la agricultura y la actividad forestal", "su historia colonial y patrimonio local", "el tren y la conexión con Concepción", "la vida de pueblo y sus tradiciones"]
+  }
+};
+
+const ENTORNOS = ["Urbano", "Rural", "Mixto (urbano y rural)"];
+
+const RECURSOS_AULA = [
+  "Proyector e internet estable",
+  "Internet intermitente",
+  "Sin internet: solo impresión",
+  "Computadores o tablets para estudiantes"
+];

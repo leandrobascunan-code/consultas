@@ -1,0 +1,39 @@
+ASISTENTE IA EDUCATIVA · SLEP ANDALIÉN SUR — ACTUALIZACIÓN
+=====================================================================
+
+NOVEDADES
+  1. Manuales actualizados: "educación pública" en lugar de "municipal",
+     sin estereotipos de comunas, y la nueva sección sobre dependencia.
+  2. Biblioteca digital (manuales.html): los 5 manuales para leer en
+     pantalla, con índice, buscador, tamaño de letra, impresión/PDF y
+     descarga en Word. Se abre desde el menú "Biblioteca".
+  3. Fuentes oficiales externas verificadas: MINEDUC (PotencIA, guía
+     ChatGPT, ChatSP, HumanIA, kit familias), CPEIP (cursos de IA),
+     Marco de Competencias Digitales Docentes, UNESCO (guía IA generativa
+     y competencias), Política Nacional de IA y Ley 21.719, con enlaces.
+  4. Asistente de prompts personalizado: pregunta comuna (Concepción,
+     Chiguayante, Florida, Hualqui u otra), entorno (urbano/rural/mixto),
+     referencias locales sugeridas por comuna o propias, y recursos de la
+     sala. Guarda un perfil SOLO en el dispositivo. El nombre del
+     establecimiento NO se incluye en los prompts (Manual 2, ap. 6.1).
+
+PARTE 1 · GITHUB (carpeta SUBIR_A_GITHUB — 25 archivos, sin carpetas)
+---------------------------------------------------------------------
+  1. Descomprime el ZIP UNA sola vez en una carpeta nueva.
+  2. github.com/leandrobascunan-code/consultas -> Add file -> Upload files
+  3. Abre SUBIR_A_GITHUB, selecciona todo (Ctrl + A), arrastra -> Commit.
+     Los archivos con igual nombre se reemplazan solos.
+  4. Espera 2 minutos y abre la página con Ctrl + F5.
+     En celulares con la app instalada: cerrarla y abrirla de nuevo.
+
+  Archivos NUEVOS esta vez: manuales.html, manuales.js y los 5 .docx.
+
+PARTE 2 · APPS SCRIPT (carpeta APPS_SCRIPT) — OPCIONAL
+---------------------------------------------------------------------
+  Tu Apps Script YA FUNCIONA. Esta actualización solo mejora cómo la IA
+  cita las fuentes externas y usa la comuna. Si quieres aplicarla:
+    - Codigo_CON_CLAVE.gs: reemplaza TODO el código en script.google.com
+      (ya trae tu clave). NUNCA subirlo a GitHub.
+    - Implementar -> Administrar implementaciones -> Editar ->
+      Versión: Nueva versión -> Implementar.
+  Codigo.gs (sin clave) queda como respaldo para documentación.

@@ -111,6 +111,24 @@ button { font: inherit; cursor: pointer; }
 }
 .btn-nueva:hover, .btn-wizard:hover, .btn-instalar:hover { transform: translateY(-1px); filter: brightness(1.05); }
 
+.btn-biblioteca {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-decoration: none;
+  border-radius: 14px; padding: 11px 14px; font-weight: 700; font-size: .9rem;
+  background: var(--azul-suave); color: var(--azul); border: 1.5px solid color-mix(in srgb, var(--slep-celeste) 45%, transparent);
+  transition: transform .12s, background .15s;
+}
+.btn-biblioteca:hover { transform: translateY(-1px); background: color-mix(in srgb, var(--slep-celeste) 22%, var(--panel)); }
+.perfil {
+  display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+  border: 1.5px dashed color-mix(in srgb, var(--slep-rosa) 70%, transparent); background: var(--rosa-suave);
+  color: var(--texto); border-radius: 14px; padding: 9px 12px;
+}
+.perfil:hover { border-style: solid; }
+.perfil-ico { font-size: 1.2rem; }
+.perfil strong { display: block; font-size: .86rem; line-height: 1.3; }
+.perfil small { display: block; font-size: .74rem; color: var(--texto-2); }
+.burbuja a { color: var(--azul); font-weight: 600; text-decoration-thickness: 1.5px; text-underline-offset: 2px; word-break: break-word; }
+
 .temas { flex: 1; overflow-y: auto; margin: 4px -6px 0; padding: 0 6px; }
 .temas details { border-radius: 12px; margin-bottom: 4px; }
 .temas summary {
