@@ -1,0 +1,27 @@
+{
+  "name": "Asistente IA Educativa · SLEP Andalién Sur",
+  "short_name": "Asistente IA",
+  "description": "Chat de consultas para diseñar material con IA de forma ética, basado en los manuales del SLEP Andalién Sur, orientaciones MINEDUC y la Ley 21.719.",
+  "lang": "es-CL",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#ffffff",
+  "theme_color": "#0071ea",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "img/iconos/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "img/iconos/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "img/iconos/icon-maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "img/iconos/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Crear prompt para material",
+      "short_name": "Crear prompt",
+      "url": "./?accion=prompt",
+      "icons": [{ "src": "img/iconos/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
