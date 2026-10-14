@@ -260,7 +260,7 @@
   /* Las respuestas del asistente se muestran DESDE SU INICIO (la persona baja
      leyendo); los mensajes propios y el indicador de escritura van al final. */
   function agregar(rol, html, { texto = "", guardar = true, alFinal = false } = {}) {
-    ocultarBienvenida();
+    if (!enInicio) ocultarBienvenida();   // durante las preguntas iniciales se mantiene la portada arriba
     const div = document.createElement("div");
     div.className = `msg ${rol}`;
     div.innerHTML = rol === "bot" ? `${AVATAR}<div class="burbuja">${html}</div>` : `<div class="burbuja">${html}</div>`;
@@ -312,7 +312,7 @@
           { valor: "¿Puedo ingresar datos de estudiantes a la IA?" },
           { valor: "¿Qué se puede delegar en la IA y qué no?" },
           { valor: "Estructura de un prompt profesional" },
-          { valor: "crear prompt", etiqueta: "✏️ Crear un prompt paso a paso", primario: true }
+          { valor: "crear prompt", etiqueta: "✏️ Diseñar un material paso a paso", primario: true }
         ]) +
         `<div class="nota">Recuerda: para normativa, verifica siempre en <strong>bcn.cl</strong> o en el sitio del MINEDUC.</div>`;
     }
@@ -328,14 +328,33 @@
     const partes = [];
     if (p.rol && ROLES[p.rol]) partes.push(`Rol de quien consulta: ${ROLES[p.rol].nombre}. Referente principal: ${ROLES[p.rol].marco}.`);
     if (p.comuna) partes.push(`Trabaja en un establecimiento de educación pública de la comuna de ${p.comuna}` + (p.entorno ? `, entorno ${p.entorno.toLowerCase()}` : "") + ".");
+    if (p.alcance) partes.push(`Quiere trabajar con: ${p.alcance.toLowerCase()}.`);
     if (est && est.caracteristicas) partes.push(`Características del establecimiento (sin identificarlo): ${est.caracteristicas}`);
     return partes.length ? `\n\n### Contexto de quien consulta\n${partes.join(" ")} Adapta tus sugerencias a este rol y contexto, sin estereotipos.` : "";
   }
 
-  const INSTRUCCION_ACLARAR = "\n\n### Cómo responder\nSi la consulta es ambigua o le falta información clave para responder bien " +
+  const REGLA_SIN_PROMPTS = "Responde TÚ directamente con el contenido, la orientación o el material solicitado. " +
+    "NO entregues prompts, plantillas de prompt ni instrucciones para usar en otra herramienta de IA, salvo que la persona lo pida explícitamente " +
+    "(por ejemplo, si escribe la palabra «prompt»).";
+  const INSTRUCCION_ACLARAR = "\n\n### Cómo responder\n" + REGLA_SIN_PROMPTS + " Si la consulta es ambigua o le falta información clave para responder bien " +
     "(por ejemplo nivel, asignatura, propósito, destinatarios o a qué establecimiento o tema se refiere), NO supongas ni inventes: " +
     "responde solo con 1 a 3 preguntas breves de aclaración, ofreciendo opciones concretas basadas en el contexto y en el rol de quien consulta. " +
     "Si la consulta es clara, responde directamente.";
+  const INSTRUCCION_MATERIAL = "\n\n### Cómo responder\nLa persona ya entregó todos los datos necesarios. Elabora DIRECTAMENTE el material completo, " +
+    "listo para usar, siguiendo la especificación. NO escribas un prompt ni expliques cómo pedírselo a otra IA. " +
+    "Al final agrega una breve sección «Para revisar antes de usar» (2 a 4 puntos: alineación curricular, pertinencia, sesgos) y la declaración de uso de IA.";
+
+  /* Elabora un material con la IA a partir de la especificación armada paso a paso */
+  async function generarMaterialIA(especificacion) {
+    const r = await fetch(CONFIG.API, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ accion: "consultar", pregunta: especificacion, historial: [], contexto: contextoPerfil() + INSTRUCCION_MATERIAL })
+    });
+    const datos = await r.json();
+    if (!datos.ok) throw new Error(datos.error || "Respuesta no válida");
+    return datos.respuesta;
+  }
 
   async function respuestaIA(consulta, estMencionado) {
     const contexto = buscar(consulta, 4).map((r) => `### ${r.ficha.titulo} (${FUENTES[r.ficha.fuente] || r.ficha.fuente})\n${r.ficha.texto}`).join("\n\n") + contextoPerfil() +
@@ -366,18 +385,27 @@
      combinado con datos de estudiantes es un identificador indirecto
      (Manual 2, apartado 6.1). Sus características sí se usan para sugerir.
      ================================================================ */
-  function leerPerfil() {
-    try { return JSON.parse(localStorage.getItem(CLAVE_PERFIL) || "null"); } catch (e) { return null; }
-  }
+  /* El perfil dura SOLO la conversación actual: se pregunta al inicio y se
+     borra al cerrar la app o al iniciar una conversación nueva. */
+  let perfilSesion = null;
+  try { localStorage.removeItem(CLAVE_PERFIL); } catch (e) { /* versiones anteriores lo guardaban */ }
+  function leerPerfil() { return perfilSesion; }
   function guardarPerfil(cambios) {
-    const p = Object.assign({}, leerPerfil() || {}, cambios);
-    try { localStorage.setItem(CLAVE_PERFIL, JSON.stringify(p)); } catch (e) { /* sin almacenamiento */ }
+    perfilSesion = Object.assign({}, perfilSesion || {}, cambios);
     mostrarPerfil(); construirSugerencias();
-    return p;
+    return perfilSesion;
   }
   function resumenPerfil(p) {
-    return [p.rol && ROLES[p.rol] ? ROLES[p.rol].corto : "", p.establecimiento, p.comuna, p.entorno].filter(Boolean).join(" · ");
+    return [p.rol && ROLES[p.rol] ? ROLES[p.rol].corto : "", p.establecimiento, p.comuna, p.alcance].filter(Boolean).join(" · ");
   }
+
+  /* Con quién quiere trabajar, según el rol */
+  const ALCANCES = {
+    docente: ["Un curso o asignatura", "Un nivel o ciclo", "Todo el establecimiento"],
+    directivo: ["Todo el establecimiento", "Un nivel o ciclo", "Equipo docente o directivo"],
+    asistente: ["Todo el establecimiento", "Un nivel o ciclo", "Un grupo de estudiantes o familias"]
+  };
+  const trabajaTodoEst = (p) => !!(p && /todo el establecimiento/i.test(p.alcance || ""));
 
   const chipsRoles = () => chips(Object.keys(ROLES).map((k) => ({ accion: "wizard", valor: k, etiqueta: `${ROLES[k].emoji} ${ROLES[k].nombre}` })));
   const chipsComunas = () => chips(Object.keys(COMUNAS).map((c) => ({ accion: "wizard", valor: c }))
@@ -388,28 +416,40 @@
      8. ASISTENTE DE PROMPTS Y PERFIL (flujo conversacional)
      ================================================================ */
   /* prefill: { tipo, tema } cuando la persona ya pidió un material en el chat */
+  let enInicio = false;   // true mientras se hacen las preguntas iniciales de la conversación
+
+  /* Preguntas iniciales: rol, establecimiento y con quién quiere trabajar */
+  function iniciarConversacion() {
+    perfilSesion = null; mostrarPerfil(); construirSugerencias();
+    enInicio = true; el.sugerencias.hidden = true;
+    wizard = { datos: {}, soloPerfil: true, inicio: true, n: 0 };
+    agregar("bot", `<h3>👋 ¡Hola! Soy el asistente de IA del SLEP Andalién Sur</h3>
+      <p>Antes de comenzar, cuéntame un poco de ti para responderte de forma pertinente. Solo lo usaré durante esta conversación.</p>`);
+    preguntar("rol");
+  }
+
+  /* prefill: { tipo, tema } cuando la persona ya pidió un material en el chat */
   function iniciarWizard(soloPerfil, prefill) {
     const p = leerPerfil() || {};
     wizard = { datos: {}, soloPerfil: !!soloPerfil, n: 0, prefill: prefill || null };
-    if (prefill && !soloPerfil) {
+    if (soloPerfil) {
+      agregar("bot", `<h3>📍 Actualicemos tus datos</h3><p>Solo se usan durante esta conversación.</p>`);
+      preguntar("rol");
+      return;
+    }
+    if (prefill) {
       if (prefill.tema) wizard.datos.tema = prefill.tema;
-      agregar("bot", `<h3>✏️ Armemos tu prompt paso a paso</h3>
-        <p>Ya sé que quieres ${prefill.tipo ? "<strong>" + escapar(prefill.tipo.nombre.toLowerCase()) + "</strong>" : "un material"}${prefill.tema ? " sobre «" + escapar(prefill.tema) + "»" : ""}. Solo te preguntaré lo que falta.</p>` +
+      agregar("bot", `<h3>✏️ Diseñemos tu material</h3>
+        <p>Quieres ${prefill.tipo ? "<strong>" + escapar(prefill.tipo.nombre.toLowerCase()) + "</strong>" : "un material"}${prefill.tema ? " sobre «" + escapar(prefill.tema) + "»" : ""}. Te haré solo las preguntas que faltan y luego <strong>lo elaboro</strong>.</p>` +
         chips([{ accion: "wizard-cancelar", valor: "x", etiqueta: "Cancelar" }]));
       if (!p.rol) { preguntar("rol"); return; }
       if (prefill.tipo) { aplicarTipo(prefill.tipo); return; }
       preguntar("tipo");
       return;
     }
-    if (soloPerfil) {
-      agregar("bot", `<h3>📍 Personaliza tu experiencia</h3>
-        <p>Con tu rol, tu comuna y tu establecimiento adaptaré las sugerencias y los prompts. Se guarda <strong>solo en este dispositivo</strong>.</p>`);
-      preguntar("rol");
-      return;
-    }
     agregar("bot",
-      `<h3>✏️ Armemos tu prompt paso a paso</h3>
-       <p>Te haré algunas preguntas breves para entregarte un prompt con la estructura del <strong>Manual 4</strong> (rol, tarea, contexto, formato, restricciones y criterio de calidad), alineado con los referentes oficiales de tu rol.</p>` +
+      `<h3>✏️ Diseñemos tu material</h3>
+       <p>Te haré algunas preguntas breves y luego <strong>elaboro el material</strong>, alineado con los referentes oficiales de tu rol.</p>` +
       chips([{ accion: "wizard-cancelar", valor: "x", etiqueta: "Cancelar" }]));
     if (!p.rol) preguntar("rol"); else preguntar("tipo");
   }
@@ -422,6 +462,19 @@
       case "rol":
         agregar("bot", titulo("¿Cuál es tu rol?") + `<p>Así te mostraré materiales y referentes acordes a tu función.</p>` + chipsRoles());
         break;
+      case "estInicio":
+        agregar("bot", titulo("¿En qué establecimiento trabajas?") +
+          `<p>Escribe su nombre (no importa si no recuerdas el nombre exacto) o elige la comuna para ver la lista.</p>` +
+          chipsComunas() +
+          chips([{ accion: "wizard", valor: "slep", etiqueta: "Trabajo en el SLEP (nivel central)" }]));
+        break;
+      case "alcance": {
+        const rol = p.rol || "docente";
+        agregar("bot", titulo("¿Con quién quieres trabajar?") +
+          `<p>Puedes cambiarlo cuando quieras. Por ejemplo, un material para <strong>todo el establecimiento</strong> o solo para un nivel.</p>` +
+          chips((ALCANCES[rol] || ALCANCES.docente).map((x, i) => ({ accion: "wizard", valor: x, primario: i === 0 }))));
+        break;
+      }
       case "tipo": {
         const rol = d.rol || p.rol;
         agregar("bot", titulo("¿Qué material quieres crear?") +
@@ -429,12 +482,16 @@
           chips(tiposDelRol(rol).map((t) => ({ accion: "wizard", valor: t.id, etiqueta: t.nombre }))));
         break;
       }
-      case "nivel":
+      case "nivel": {
+        const todo = { accion: "wizard", valor: "Todo el establecimiento", etiqueta: "🏫 Todo el establecimiento", primario: trabajaTodoEst(p) };
         agregar("bot", titulo("¿Para qué nivel?") + `<p>Los niveles siguen las <strong>Bases Curriculares</strong> vigentes. También puedes escribir el curso (ej.: "6° básico").</p>` +
-          chips(NIVELES.map((x) => ({ accion: "wizard", valor: x.nombre }))));
+          chips((trabajaTodoEst(p) ? [todo] : []).concat(NIVELES.map((x) => ({ accion: "wizard", valor: x.nombre }))).concat(trabajaTodoEst(p) ? [] : [todo])));
         break;
+      }
       case "asignatura": {
-        const lista = ASIGNATURAS[d.nivel] || [];
+        const lista = d.nivel === "Todo el establecimiento"
+          ? ["Transversal (varias asignaturas)", "Lectura y escritura", "Matemática", "Ciencias", "Historia y formación ciudadana", "Orientación y convivencia", "Artes y cultura"]
+          : (ASIGNATURAS[d.nivel] || []);
         const parv = d.nivelObj && d.nivelObj.parvularia;
         agregar("bot", titulo(parv ? "¿Qué núcleo de aprendizaje?" : "¿Qué asignatura o módulo?") +
           (lista.length ? "" : `<p>Escribe la asignatura o el módulo (ej.: "Matemática" o un módulo de tu especialidad TP).</p>`) +
@@ -454,7 +511,8 @@
           `<p>Descríbelo en una frase, sin datos de personas. Ej.: <em>"mejorar la puntualidad en el inicio de clases"</em> o <em>"recreos más inclusivos"</em>.</p>`);
         break;
       case "destinatarios":
-        agregar("bot", titulo("¿Para quién es?") + chips(DESTINATARIOS.map((x) => ({ accion: "wizard", valor: x }))));
+        agregar("bot", titulo("¿Para quién es?") + chips((trabajaTodoEst(p) ? ["Toda la comunidad educativa"] : []).concat(DESTINATARIOS).concat(trabajaTodoEst(p) ? [] : ["Toda la comunidad educativa"])
+          .map((x, i) => ({ accion: "wizard", valor: x, primario: i === 0 && trabajaTodoEst(p) }))));
         break;
       case "perfil":
         agregar("bot", titulo("¿Usamos los datos de tu perfil?") + `<p>📍 <strong>${escapar(resumenPerfil(p))}</strong></p>` +
@@ -539,18 +597,30 @@
   }
 
   /* Después de definir el material, pasa a la parte de ubicación/perfil */
+  /* Usa automáticamente los datos dados al inicio; solo pregunta si faltan */
   function pasoUbicacion() {
-    const p = leerPerfil() || {};
-    preguntar(p.comuna ? "perfil" : "comuna");
+    const p = leerPerfil() || {}, d = wizard.datos;
+    if (p.comuna || p.estId || p.establecimiento) {
+      d.comuna = p.comuna; d.entorno = p.entorno; d.estId = p.estId;
+      trasUbicacion(); return;
+    }
+    preguntar("comuna");
   }
   function trasUbicacion() {
-    if (wizard.soloPerfil) { terminarPerfil(); return; }
+    if (wizard.soloPerfil) { preguntar("alcance"); return; }
     preguntar(wizard.datos.tipo.curricular ? "referencias" : "contexto");
   }
   function terminarPerfil() {
-    wizard = null;
-    agregar("bot", `<p>✅ Listo, guardé tu perfil: <strong>${escapar(resumenPerfil(leerPerfil() || {}) || "sin datos")}</strong>. Lo usaré para adaptar sugerencias y prompts. Puedes cambiarlo cuando quieras desde el menú.</p>` +
-      chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Crear prompt para material", primario: true }, { accion: "preguntar", valor: "Mi establecimiento" }]));
+    const p = leerPerfil() || {};
+    const fueInicio = wizard && wizard.inicio;
+    wizard = null; enInicio = false; el.sugerencias.hidden = false;
+    const sug = (SUG_ROL[p.rol] || []).map((s) => ({ valor: s.titulo }));
+    agregar("bot", `<p>✅ Perfecto: <strong>${escapar(resumenPerfil(p) || "sin datos")}</strong>.</p>
+      <p><strong>¿En qué te ayudo?</strong> Escríbeme tu consulta con tus palabras, o elige una opción:</p>` +
+      chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Diseñar un material", primario: true }]
+        .concat(p.estId ? [{ valor: "Mi establecimiento", etiqueta: "🏫 Ver datos de mi establecimiento" }] : [])
+        .concat(sug)));
+    if (fueInicio) el.entrada.focus();
   }
   function elegirEstablecimiento(est) {
     const d = wizard.datos;
@@ -569,7 +639,7 @@
         const rol = ROLES[valor] ? valor : Object.keys(ROLES).find((k) => normalizar(ROLES[k].nombre).includes(normalizar(valor)) || normalizar(valor).includes(normalizar(ROLES[k].corto)));
         if (!rol) { agregar("bot", `<p>Elige una de las opciones:</p>` + chipsRoles()); return; }
         d.rol = rol; guardarPerfil({ rol });
-        if (wizard.soloPerfil) { preguntar("comuna"); return; }
+        if (wizard.soloPerfil) { preguntar("estInicio"); return; }
         const pre = wizard.prefill && wizard.prefill.tipo;
         if (pre && pre.roles.includes(rol)) aplicarTipo(pre); else preguntar("tipo");
         return;
@@ -589,9 +659,16 @@
       case "oa": d.oa = omitido ? "" : valor; pasoUbicacion(); return;
       case "proposito": d.proposito = valor; preguntar("destinatarios"); return;
       case "destinatarios": d.destinatarios = valor; pasoUbicacion(); return;
-      case "perfil":
-        if (valor === "si") { d.comuna = p.comuna; d.entorno = p.entorno; d.estId = p.estId; trasUbicacion(); }
-        else preguntar("comuna");
+      case "estInicio":
+        if (COMUNAS[valor]) { d.comuna = valor; guardarPerfil({ comuna: valor }); wizard.n--; preguntar("listaEst"); return; }
+        if (valor === "Otra comuna") { wizard.n--; preguntar("otraComuna"); return; }
+        if (omitido) { preguntar("alcance"); return; }
+        if (valor === "slep") { guardarPerfil({ establecimiento: "SLEP Andalién Sur (nivel central)", estId: "" }); preguntar("alcance"); return; }
+        wizard.paso = "establecimiento"; avanzarWizard(valor);   // escribió un nombre: búsqueda tolerante a errores
+        return;
+      case "alcance":
+        guardarPerfil({ alcance: valor });
+        terminarPerfil();
         return;
       case "comuna":
         if (valor === "Otra comuna") { wizard.n--; preguntar("otraComuna"); return; }
@@ -606,7 +683,7 @@
       case "noEncontrado":
       case "listaEst": {
         if (valor.startsWith("id:")) { const est = ESTABLECIMIENTOS.find((e) => e.id === valor.slice(3)); if (est) { elegirEstablecimiento(est); return; } }
-        if (omitido) { guardarPerfil({ establecimiento: "", estId: "" }); preguntar("entorno"); return; }
+        if (omitido) { guardarPerfil({ establecimiento: "", estId: "" }); preguntar(wizard.soloPerfil ? "alcance" : "entorno"); return; }
         if (valor === "reintentar") { wizard.paso = "establecimiento"; agregar("bot", `<p>Escribe el nombre de tu establecimiento (no importa si no recuerdas el nombre exacto).</p>`); return; }
         if (valor === "lista") { wizard.n--; preguntar("listaEst"); return; }
         if (valor === "usar") { guardarPerfil({ establecimiento: wizard.buscado, estId: "" }); d.establecimiento = wizard.buscado; preguntar("entorno"); return; }
@@ -633,14 +710,15 @@
       case "recursos": d.recursos = omitido ? "" : valor; preguntar("contexto"); return;
       case "contexto":
         d.contexto = omitido ? "" : valor;
-        entregarPrompt(d);
         wizard = null;
+        entregarMaterial(d);
         return;
     }
   }
 
-  function entregarPrompt(d) {
+  async function entregarMaterial(d) {
     const t = d.tipo, p = leerPerfil() || {};
+    const todoEst = d.nivel === "Todo el establecimiento";
     const est = estDePerfil({ estId: d.estId || p.estId });
     const lugar = (d.comuna
       ? `establecimiento de educación pública de la comuna de ${d.comuna} (Región del Biobío, Chile)`
@@ -655,8 +733,9 @@
         tarea = "diseña una experiencia de aprendizaje";
         formato = "inicio, desarrollo y cierre (30 a 45 minutos), con juego, movimiento y material concreto, preguntas mediadoras y evidencias a observar";
       }
+      if (todoEst) formato += "; con una propuesta común y adaptaciones breves por ciclo o nivel";
       contexto = [
-        `${parv ? "niños y niñas de" : "estudiantes de"} ${d.nivel}`,
+        todoEst ? `todo el establecimiento (todos sus niveles${est && est.niveles ? ": " + est.niveles : ""})` : `${parv ? "niños y niñas de" : "estudiantes de"} ${d.nivel}`,
         `${parv ? "núcleo de aprendizaje" : "asignatura"}: ${d.asignatura}`,
         `tema: ${d.tema}`,
         lugar,
@@ -670,14 +749,16 @@
       if (d.oa) contexto += `\n\nOBJETIVO DE APRENDIZAJE (copiado de las Bases Curriculares): ${d.oa}`;
       marco = parv
         ? "Bases Curriculares de Educación Parvularia y Marco para la Buena Enseñanza de Educación Parvularia (dominios A y C). Privilegia experiencias lúdicas, el juego y el bienestar integral."
-        : `${d.nivelObj ? d.nivelObj.bases : "Bases Curriculares vigentes del nivel"} y Marco para la Buena Enseñanza 2021, estándares ${t.estandares || "3 y 7"}.`;
+        : todoEst
+          ? `Bases Curriculares de los niveles que imparte el establecimiento, Marco para la Buena Enseñanza 2021 (estándares ${t.estandares || "3 y 7"}) y los sellos del SLEP Andalién Sur (formación integral, identidad territorial, multiculturalidad, creatividad e innovación).`
+          : `${d.nivelObj ? d.nivelObj.bases : "Bases Curriculares vigentes del nivel"} y Marco para la Buena Enseñanza 2021, estándares ${t.estandares || "3 y 7"}.`;
       restricciones = "lenguaje claro y adecuado al nivel; terminología del sistema escolar chileno. " +
         (d.oa ? "Trabaja exclusivamente sobre el OA indicado; no inventes otros objetivos ni cites normativa." : "No inventes objetivos de aprendizaje ni cites las Bases Curriculares o normativa: yo verificaré la alineación curricular en curriculumnacional.cl.") +
         " No reproduzcas estereotipos sobre lo urbano o lo rural. Si te falta información, márcala como [PENDIENTE] en lugar de inventarla.";
       criterio = "todo lo que se pida debe producir evidencia observable del aprendizaje, y el material debe ser accesible para todo el grupo.";
       declaracion = "Material elaborado con apoyo de herramientas de inteligencia artificial y adaptado por el equipo docente de la asignatura.";
     } else {
-      contexto = [`tema o propósito: ${d.proposito}`, `destinatarios: ${d.destinatarios}`, lugar, d.contexto ? `consideraciones: ${d.contexto}` : ""]
+      contexto = [`tema o propósito: ${d.proposito}`, `destinatarios: ${d.destinatarios}`, lugar, p.alcance ? `alcance: ${p.alcance.toLowerCase()}` : "", d.contexto ? `consideraciones: ${d.contexto}` : ""]
         .filter(Boolean).join("; ") + "." + carEst;
       marco = t.marco;
       restricciones = "lenguaje claro y respetuoso, adecuado a los destinatarios; terminología del sistema escolar chileno. No inventes normativa, cifras ni datos del establecimiento: márcalos como [PENDIENTE]. No incluyas datos personales ni emitas juicios sobre personas.";
@@ -702,23 +783,36 @@ CRITERIO DE CALIDAD: ${criterio}
 
 Al final, indica qué partes debo verificar y qué información te faltó para responder mejor.${t.pegar ? "\n\nMATERIAL ORIGINAL:\n[pega aquí el material, sin datos personales]" : ""}`;
 
-    agregar("bot",
-      `<h3>✅ Tu prompt está listo</h3>
-       <p>Cópialo y pégalo en la herramienta de IA autorizada en tu establecimiento:</p>
-       ${markdown("```\n" + prompt + "\n```")}
-       <h4>Después de la primera respuesta, itera:</h4>
-       <ul>
-         <li>"Hazlo más breve" · "Agrega ejemplos concretos"</li>
-         <li>"Explícalo de manera más simple" · "Reorganízalo en una tabla"</li>
-       </ul>
-       <div class="nota">📌 Antes de usarlo: ${t.curricular ? "verifica la alineación curricular, " : ""}revisa sesgos y declara el uso de IA: <em>"${escapar(declaracion)}"</em></div>
-       <div class="pie-msg">${etiquetaFuente({ fuente: "M4" })}${etiquetaFuente({ fuente: t.curricular ? "DOC" : (p.rol === "asistente" ? "ASI" : "DIR") })}</div>` +
-      chips([
-        { accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Crear otro prompt", primario: true },
-        { valor: "Frases para ajustar la respuesta de la IA" },
-        { valor: "Cómo declarar el uso de IA" }
-      ]),
-      { texto: prompt });
+    const fuentes = `<div class="pie-msg">${etiquetaFuente({ fuente: t.curricular ? "DOC" : (p.rol === "asistente" ? "ASI" : "DIR") })}</div>`;
+    const verPrompt = `<details class="ver-prompt"><summary>Ver la especificación usada (por si quieres usarla en otra herramienta)</summary>${markdown("```\n" + prompt + "\n```")}</details>`;
+    const siguientes = chips([
+      { valor: "Hazlo más breve" }, { valor: "Agrega ejemplos concretos" }, { valor: "Adáptalo para estudiantes con más apoyo" },
+      { accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Diseñar otro material" }
+    ], "¿Quieres ajustarlo?");
+
+    // Sin IA conectada (modo guías) solo se puede entregar la especificación para usarla en otra herramienta
+    if (!MODO_IA || t.pegar) {
+      agregar("bot", `<h3>📝 Tu material, listo para generar</h3>
+        <p>${t.pegar ? "Este material necesita que pegues tu texto original, así que te dejo la especificación lista: cópiala, agrega tu material al final y úsala en la herramienta de IA autorizada." : "El asistente está en modo guías (sin IA conectada). Copia esta especificación en la herramienta de IA autorizada en tu establecimiento:"}</p>
+        ${markdown("```\n" + prompt + "\n```")}
+        <div class="nota">📌 Antes de usarlo: ${t.curricular ? "verifica la alineación curricular, " : ""}revisa sesgos y declara el uso de IA: <em>"${escapar(declaracion)}"</em></div>` + fuentes, { texto: prompt });
+      return;
+    }
+
+    ocupado = true; el.enviar.disabled = true;
+    const espera = mostrarEscribiendo();
+    try {
+      const material = await generarMaterialIA(prompt);
+      espera.remove();
+      agregar("bot", `<h3>✅ ${escapar(t.nombre)}</h3>${markdown(material)}${verPrompt}
+        <div class="nota">📌 Revisa el material antes de usarlo${t.curricular ? " (alineación curricular, pertinencia y sesgos)" : ""} y declara el uso de IA: <em>"${escapar(declaracion)}"</em></div>` + fuentes + siguientes,
+        { texto: material });
+    } catch (e) {
+      espera.remove();
+      agregar("bot", `<p>No pude conectar con el servicio de IA para elaborarlo (${escapar(e.message)}). Te dejo la especificación para que la uses en otra herramienta:</p>${markdown("```\n" + prompt + "\n```")}`, { texto: prompt });
+    } finally {
+      ocupado = false; el.enviar.disabled = false; el.entrada.focus();
+    }
   }
 
   /* Ficha breve de un establecimiento registrado */
@@ -737,14 +831,14 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     }
     if (!est) {
       return `<h3>🏫 ${escapar(p.establecimiento)}</h3><p>Este establecimiento aún no tiene características registradas en el asistente. El equipo del Servicio puede agregarlas desde el panel de configuración, a partir del Plan Anual Local.</p>` +
-        chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Crear prompt para material", primario: true }]);
+        chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Diseñar material con IA", primario: true }]);
     }
     const enlaces = (est.enlaces || []).map((e) => `- [${e.titulo}](${e.url})`).join("\n");
     return `<h3>🏫 ${escapar(est.nombre)}</h3>` +
       markdown([est.comuna ? `**Comuna:** ${est.comuna}` : "", est.entorno ? `**Entorno:** ${est.entorno}` : "", est.niveles ? `**Niveles:** ${est.niveles}` : "",
         est.caracteristicas ? `\n${est.caracteristicas}` : "", enlaces ? `\n**Enlaces:**\n${enlaces}` : ""].filter(Boolean).join("\n")) +
       `<div class="nota">Fuente: Plan Anual Local del Servicio y registros del equipo. Usaré estas características (sin el nombre) para adaptar tus prompts.</div>` +
-      chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Crear prompt para material", primario: true }]);
+      chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Diseñar material con IA", primario: true }]);
   }
 
   /* ================================================================
@@ -832,7 +926,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     }
     if (RE_SALUDO.test(n)) {
       agregar("bot", `<p>¡Hola! 👋 Soy el asistente de IA del <strong>SLEP Andalién Sur</strong>. Puedo resolver dudas sobre uso ético de la IA, protección de datos, herramientas, prompts y los referentes oficiales de tu rol, o ayudarte a <strong>crear un prompt</strong> para diseñar material.</p>` +
-        chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Crear prompt para material", primario: true }, { valor: "¿Qué herramientas de IA puedo usar?" }, { valor: "¿Puedo ingresar datos de estudiantes a la IA?" }]));
+        chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Diseñar material con IA", primario: true }, { valor: "¿Qué herramientas de IA puedo usar?" }, { valor: "¿Puedo ingresar datos de estudiantes a la IA?" }]));
       return;
     }
     if (RE_GRACIAS.test(n)) {
@@ -939,7 +1033,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   }
 
   const SUG_BASE = [
-    { emoji: "✏️", color: "#f8b400", titulo: "Crear un prompt para material", texto: "Paso a paso, según tu rol y tu comuna", accion: "wizard-iniciar" },
+    { emoji: "✏️", color: "#f8b400", titulo: "Diseñar un material con IA", texto: "Te pregunto lo necesario y lo elaboro", accion: "wizard-iniciar" },
     { emoji: "🔒", color: "#ff3c4c", titulo: "¿Puedo ingresar datos de estudiantes?", texto: "Lo que dice la Ley 21.719 y el Manual 2" },
     { emoji: "⚖️", color: "#0071ea", titulo: "¿Qué se puede delegar en la IA?", texto: "Tareas permitidas y zona prohibida" },
     { emoji: "🧰", color: "#90d039", titulo: "¿Qué herramientas de IA puedo usar?", texto: "Seis familias y cómo evaluarlas" }
@@ -979,10 +1073,10 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     const caja = $("#perfil"), saludo = $("#saludo");
     if (p.rol || p.comuna) {
       const rol = ROLES[p.rol];
-      caja.innerHTML = `<span class="perfil-ico">${rol ? rol.emoji : "📍"}</span><span><strong>${escapar(p.establecimiento || (rol ? rol.nombre : "Mi perfil"))}</strong><small>${escapar([rol && p.establecimiento ? rol.corto : "", p.comuna, p.entorno].filter(Boolean).join(" · "))} · Cambiar</small></span>`;
+      caja.innerHTML = `<span class="perfil-ico">${rol ? rol.emoji : "📍"}</span><span><strong>${escapar(p.establecimiento || (rol ? rol.nombre : "Mi perfil"))}</strong><small>${escapar([rol && p.establecimiento ? rol.corto : "", p.comuna, p.alcance].filter(Boolean).join(" · "))} · Cambiar</small></span>`;
       if (saludo) saludo.textContent = p.establecimiento ? `¡Hola, equipo de ${p.establecimiento}!` : (p.comuna ? `¡Hola, ${p.comuna}! ¿En qué te ayudo?` : "¡Hola! ¿En qué te ayudo hoy?");
     } else {
-      caja.innerHTML = `<span class="perfil-ico">📍</span><span><strong>Mi rol, comuna y establecimiento</strong><small>Personaliza sugerencias y prompts</small></span>`;
+      caja.innerHTML = `<span class="perfil-ico">📍</span><span><strong>Mi rol y establecimiento</strong><small>Se pregunta al iniciar cada conversación</small></span>`;
       if (saludo) saludo.textContent = "¡Hola! ¿En qué te ayudo hoy?";
     }
   }
@@ -994,10 +1088,13 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       : `<span class="luz"></span><div><strong>Modo guías</strong>Responde con los manuales del Servicio. Tus consultas no salen de este navegador.</div>`;
   }
 
+  /* Conversación nueva = todo desde cero, incluido el perfil (rol, colegio, alcance) */
   function nuevaConversacion() {
-    historial = []; wizard = null;
+    historial = []; wizard = null; pendiente = null;
     el.mensajes.innerHTML = ""; el.bienvenida.hidden = false; el.chat.scrollTop = 0;
-    cerrarMenu(); el.entrada.focus();
+    cerrarMenu();
+    iniciarConversacion();
+    el.entrada.focus();
   }
 
   function aplicarTema(t) {
@@ -1081,7 +1178,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     if (!b) return;
     const { accion, valor } = b.dataset;
     if (accion === "preguntar") procesar(valor);
-    else if (accion === "wizard-iniciar") { cerrarMenu(); agregarUsuario("Crear prompt para material"); iniciarWizard(); }
+    else if (accion === "wizard-iniciar") { cerrarMenu(); agregarUsuario("Diseñar material con IA"); iniciarWizard(); }
     else if (accion === "wizard" && wizard) { agregarUsuario(b.textContent.trim()); avanzarWizard(valor); }
     else if (accion === "ir") { location.href = valor; }
     else if (accion === "perfil-iniciar") { cerrarMenu(); agregarUsuario("Mi perfil"); iniciarWizard(true); }
@@ -1108,7 +1205,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   });
 
   $("#btnNueva").addEventListener("click", nuevaConversacion);
-  $("#btnWizard").addEventListener("click", () => { cerrarMenu(); agregarUsuario("Crear prompt para material"); iniciarWizard(); });
+  $("#btnWizard").addEventListener("click", () => { cerrarMenu(); agregarUsuario("Diseñar material con IA"); iniciarWizard(); });
   $("#btnMenu").addEventListener("click", abrirMenu);
   $("#btnCerrarMenu").addEventListener("click", cerrarMenu);
   el.overlay.addEventListener("click", cerrarMenu);
@@ -1127,7 +1224,9 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   mostrarPerfil();
   cargarContenido();
   if (new URLSearchParams(location.search).get("accion") === "prompt") {   // atajo de la app instalada
-    agregarUsuario("Crear prompt para material"); iniciarWizard();
+    agregarUsuario("Diseñar material con IA"); iniciarWizard();
+  } else {
+    iniciarConversacion();   // siempre parte preguntando rol, establecimiento y alcance
   }
   el.entrada.focus();
 })();
