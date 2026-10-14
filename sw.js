@@ -6,17 +6,17 @@ const ARCHIVOS = [
   "./",
   "index.html",
   "manuales.html",
-  "js/manuales.js",
+  "manuales.js",
   "manifest.webmanifest",
-  "css/estilos.css",
-  "js/config.js",
-  "js/conocimiento.js",
-  "js/app.js",
-  "img/logo-slep.png",
-  "img/ayuda.jpg",
-  "img/iconos/icon-192.png",
-  "img/iconos/icon-512.png",
-  "img/iconos/favicon-48.png"
+  "estilos.css",
+  "config.js",
+  "conocimiento.js",
+  "app.js",
+  "logo-slep.png",
+  "ayuda.jpg",
+  "icon-192.png",
+  "icon-512.png",
+  "favicon-48.png"
 ];
 
 self.addEventListener("install", (e) => {

@@ -151,7 +151,7 @@
   /* ================================================================
      4. RENDERIZADO DE MENSAJES
      ================================================================ */
-  const AVATAR = `<div class="avatar" aria-hidden="true"><img src="img/iconos/favicon-48.png" alt=""></div>`;
+  const AVATAR = `<div class="avatar" aria-hidden="true"><img src="favicon-48.png" alt=""></div>`;
   const COLORES = { M1: "#0071ea", M2: "#ff3c4c", LEY: "#9b59d0", M3: "#4fa61a", M4: "#f0a500", M5: "#22a9dc", MINEDUC: "#0071ea", EXT: "#e0559b" };
 
   function ocultarBienvenida() { el.bienvenida.hidden = true; }

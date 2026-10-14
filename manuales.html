@@ -7,12 +7,12 @@
   <meta name="description" content="Lectura digital de la serie de manuales de Inteligencia Artificial para la Gestión Educativa del SLEP Andalién Sur.">
   <link rel="manifest" href="manifest.webmanifest">
   <meta name="theme-color" content="#0071ea">
-  <link rel="icon" type="image/png" sizes="48x48" href="img/iconos/favicon-48.png">
-  <link rel="apple-touch-icon" href="img/iconos/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/estilos.css">
+  <link rel="stylesheet" href="estilos.css">
   <style>
     body { overflow-y: auto; }
     .bib { max-width: 1180px; margin: 0 auto; padding: 0 20px 60px; }
@@ -132,7 +132,7 @@
   <header class="bib-top">
     <a class="volver" href="./">← Volver al asistente</a>
     <h1>📚 Biblioteca de manuales</h1>
-    <img src="img/logo-slep.png" alt="SLEP Andalién Sur">
+    <img src="logo-slep.png" alt="SLEP Andalién Sur">
   </header>
 
   <div class="bib">
@@ -173,14 +173,14 @@
   </div>
   <button class="arriba" id="arriba" aria-label="Volver arriba">↑</button>
 
-  <script src="js/manuales.js"></script>
+  <script src="manuales.js"></script>
   <script>
   (function () {
     "use strict";
     try { if (localStorage.getItem("slep-ia-tema") === "dark") document.documentElement.setAttribute("data-theme", "dark"); } catch (e) {}
     const $ = (s) => document.querySelector(s);
     const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    const CARPETA_DOCX = "manuales/";   // carpeta donde están los .docx
+    const CARPETA_DOCX = "";   // carpeta donde están los .docx
     let actual = null, tam = 1.04, original = "";
     try { tam = parseFloat(localStorage.getItem("slep-ia-letra")) || 1.04; } catch (e) {}
 
