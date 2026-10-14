@@ -134,19 +134,93 @@
   const GENERICAS = new Set("escuela liceo colegio complejo educacional basica basico particular municipal jardin infantil sala cuna centro de la el los las del y n no".split(" "));
   function palabrasNombre(t) { return normalizar(t).split(" ").filter((w) => w.length > 1 && !GENERICAS.has(w)); }
 
-  function buscarEstablecimiento(texto, comuna) {
+  /* Búsqueda tolerante a errores de escritura:
+     - por palabra: distancia de edición (letras cambiadas, faltantes o sobrantes)
+     - por nombre completo: parecido de pares de letras (sirve si se juntan o separan palabras)
+     Devuelve [{ e, puntaje }] de 0 a 1; sobre 0,97 se considera coincidencia exacta. */
+  function distancia(a, b) {
+    const m = a.length, n = b.length;
+    if (!m) return n; if (!n) return m;
+    // Distancia con transposiciones: "jhon" → "john" cuenta como un solo error
+    let ante = null, prev = Array.from({ length: n + 1 }, (_, j) => j);
+    for (let i = 1; i <= m; i++) {
+      const cur = [i];
+      for (let j = 1; j <= n; j++) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+        if (ante && i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], ante[j - 2] + 1);
+      }
+      ante = prev; prev = cur;
+    }
+    return prev[n];
+  }
+  function simPalabra(a, b) {
+    if (a === b) return 1;
+    if (/^\d+$/.test(a) || /^\d+$/.test(b)) return 0;          // los números (D-123, A-45) deben coincidir exacto
+    let s = 1 - distancia(a, b) / Math.max(a.length, b.length);
+    if (a.length >= 3 && b.startsWith(a)) s = Math.max(s, 0.85);  // abreviaturas: "balm" → "balmaceda"
+    return s;
+  }
+  function pares(t) { const s = t.replace(/ /g, ""); const r = []; for (let i = 0; i < s.length - 1; i++) r.push(s.slice(i, i + 2)); return r; }
+  function parecido(a, b) {
+    const A = pares(a), B = pares(b);
+    if (!A.length || !B.length) return 0;
+    const m = new Map(); B.forEach((x) => m.set(x, (m.get(x) || 0) + 1));
+    let c = 0; A.forEach((x) => { const k = m.get(x); if (k) { c++; m.set(x, k - 1); } });
+    return (2 * c) / (A.length + B.length);
+  }
+  function puntajeEstablecimiento(texto, e) {
+    const q = palabrasNombre(texto);
+    if (!q.length) return 0;
+    let mejor = 0;
+    [e.nombre].concat(String(e.alias || "").split(",")).filter((v) => v.trim()).forEach((v) => {
+      const n = palabrasNombre(v);
+      if (!n.length) return;
+      const porPalabra = q.reduce((s, w) => s + Math.max(...n.map((x) => simPalabra(w, x))), 0) / q.length;
+      const cobertura = n.reduce((s, x) => s + Math.max(...q.map((w) => simPalabra(w, x))), 0) / n.length;
+      mejor = Math.max(mejor, 0.75 * porPalabra + 0.25 * cobertura, parecido(q.join(" "), n.join(" ")));
+    });
+    return mejor;
+  }
+  /* Detecta si una consulta del chat menciona un establecimiento registrado,
+     aunque esté mal escrito. Devuelve [{ e, puntaje }] o []. */
+  const PALABRAS_INSTITUCION = ["escuela", "colegio", "liceo", "jardin", "complejo", "instituto", "establecimiento", "cole", "sala"];
+  function detectarMencion(texto) {
+    const todas = normalizar(texto).split(" ").filter((w) => w.length > 1);
     const q = palabrasNombre(texto);
     if (!q.length) return [];
+    const nombraInstitucion = todas.some((w) => PALABRAS_INSTITUCION.some((p) => simPalabra(w, p) >= 0.75));
+    const esInstitucion = (w) => w === "basica" || w === "basico" || PALABRAS_INSTITUCION.some((p) => simPalabra(w, p) >= 0.75);
+    return ESTABLECIMIENTOS.map((e) => {
+      let mejor = 0;
+      [e.nombre].concat(String(e.alias || "").split(",")).filter((v) => v.trim()).forEach((v) => {
+        const n = palabrasNombre(v);
+        if (!n.length) return;
+        if (!nombraInstitucion && n.length < 2) return;
+        const sims = n.map((x) => Math.max(...q.map((w) => simPalabra(w, x))));
+        if (sims.every((s) => s === 1) && (n.length >= 2 || nombraInstitucion)) {
+          // Nombre de una sola palabra (ej. "Escuela Básica Florida"): debe ir justo después de escuela/colegio/liceo
+          if (n.length === 1) {
+            const j = todas.findIndex((w) => simPalabra(w, n[0]) === 1);
+            if (!(j > 0 && (esInstitucion(todas[j - 1]) || (j > 1 && esInstitucion(todas[j - 2]))))) return;
+          }
+          mejor = 1; return;
+        }
+        const distintivas = n.map((x, i) => (x.length >= 4 ? sims[i] : 0));
+        const mejorPalabra = Math.max(...distintivas);
+        const cobertura = sims.reduce((s, x) => s + x, 0) / n.length;
+        if (n.length === 1) return;                         // una sola palabra solo cuenta si coincide exacta (arriba)
+        if (mejorPalabra >= 0.7 && (cobertura >= 0.6 || mejorPalabra >= 0.85)) mejor = Math.max(mejor, 0.5 * cobertura + 0.5 * mejorPalabra);
+      });
+      return { e, puntaje: mejor };
+    }).filter((r) => r.puntaje >= 0.6).sort((a, b) => b.puntaje - a.puntaje).slice(0, 3);
+  }
+
+  function buscarEstablecimiento(texto, comuna) {
     return ESTABLECIMIENTOS
-      .filter((e) => !comuna || !e.comuna || normalizar(e.comuna) === normalizar(comuna))
-      .map((e) => {
-        const nombre = palabrasNombre(e.nombre + " " + (e.alias || ""));
-        const coinciden = q.filter((w) => nombre.some((n) => n === w || (w.length > 3 && n.startsWith(w)))).length;
-        return { e, puntaje: coinciden / Math.max(q.length, 1) };
-      })
-      .filter((r) => r.puntaje >= 0.5)
+      .map((e) => ({ e, puntaje: puntajeEstablecimiento(texto, e) + (comuna && normalizar(e.comuna) === normalizar(comuna) ? 0.04 : 0) }))
+      .filter((r) => r.puntaje >= 0.62)
       .sort((a, b) => b.puntaje - a.puntaje)
-      .slice(0, 4).map((r) => r.e);
+      .slice(0, 4);
   }
   const estDePerfil = (p) => (p && p.estId ? ESTABLECIMIENTOS.find((e) => e.id === p.estId) : null);
 
@@ -179,7 +253,7 @@
      5. RENDERIZADO DE MENSAJES
      ================================================================ */
   const AVATAR = `<div class="avatar" aria-hidden="true"><img src="favicon-48.png" alt=""></div>`;
-  const COLORES = { M1: "#0071ea", M2: "#ff3c4c", LEY: "#9b59d0", M3: "#4fa61a", M4: "#f0a500", M5: "#22a9dc", MINEDUC: "#0071ea", EXT: "#e0559b", DOC: "#0b8f6a", DIR: "#5b4bd1", ASI: "#d9622b", SLEP: "#0071ea" };
+  const COLORES = { PAL: "#f0a500", M1: "#0071ea", M2: "#ff3c4c", LEY: "#9b59d0", M3: "#4fa61a", M4: "#f0a500", M5: "#22a9dc", MINEDUC: "#0071ea", EXT: "#e0559b", DOC: "#0b8f6a", DIR: "#5b4bd1", ASI: "#d9622b", SLEP: "#0071ea" };
 
   function ocultarBienvenida() { el.bienvenida.hidden = true; }
 
@@ -226,6 +300,12 @@
 
   function respuestaLocal(consulta) {
     const res = buscar(consulta, 5);
+    // Consulta breve que calza con varios temas parecidos: preguntar en vez de suponer
+    if (res.length >= 2 && res[0].puntaje >= 2.2 && tokens(consulta).length <= 3 && res[1].puntaje >= res[0].puntaje * 0.8) {
+      return `<p>Tu consulta puede referirse a varios temas. Para no suponer, ¿cuál de estos buscas?</p>` +
+        chips(res.filter((r) => r.puntaje >= res[0].puntaje * 0.6).slice(0, 4).map((r, i) => ({ valor: r.ficha.titulo, primario: i === 0 }))) +
+        `<p class="ayuda-chat">También puedes escribir tu pregunta con más detalle.</p>`;
+    }
     if (!res.length || res[0].puntaje < 2.2) {
       return `<p>No encontré esto en los manuales del Servicio. 🤔 Prueba reformulando con otras palabras o elige un tema:</p>` +
         chips([
@@ -252,8 +332,16 @@
     return partes.length ? `\n\n### Contexto de quien consulta\n${partes.join(" ")} Adapta tus sugerencias a este rol y contexto, sin estereotipos.` : "";
   }
 
-  async function respuestaIA(consulta) {
-    const contexto = buscar(consulta, 4).map((r) => `### ${r.ficha.titulo} (${FUENTES[r.ficha.fuente] || r.ficha.fuente})\n${r.ficha.texto}`).join("\n\n") + contextoPerfil();
+  const INSTRUCCION_ACLARAR = "\n\n### Cómo responder\nSi la consulta es ambigua o le falta información clave para responder bien " +
+    "(por ejemplo nivel, asignatura, propósito, destinatarios o a qué establecimiento o tema se refiere), NO supongas ni inventes: " +
+    "responde solo con 1 a 3 preguntas breves de aclaración, ofreciendo opciones concretas basadas en el contexto y en el rol de quien consulta. " +
+    "Si la consulta es clara, responde directamente.";
+
+  async function respuestaIA(consulta, estMencionado) {
+    const contexto = buscar(consulta, 4).map((r) => `### ${r.ficha.titulo} (${FUENTES[r.ficha.fuente] || r.ficha.fuente})\n${r.ficha.texto}`).join("\n\n") + contextoPerfil() +
+      (estMencionado ? `\n\n### Establecimiento mencionado en la consulta\n${estMencionado.nombre}` + (estMencionado.comuna ? ` (${estMencionado.comuna}` + (estMencionado.entorno ? `, ${estMencionado.entorno.toLowerCase()}` : "") + ")" : "") +
+        (estMencionado.niveles ? `. Niveles: ${estMencionado.niveles}` : "") + (estMencionado.caracteristicas ? `. Características según el PAL: ${estMencionado.caracteristicas}` : "") : "") +
+      INSTRUCCION_ACLARAR;
     const previos = historial.slice(-9, -1).map((m) => ({
       role: m.rol === "user" ? "user" : "assistant",
       content: (m.texto || m.html.replace(/<[^>]+>/g, " ")).slice(0, 2000)
@@ -299,9 +387,20 @@
   /* ================================================================
      8. ASISTENTE DE PROMPTS Y PERFIL (flujo conversacional)
      ================================================================ */
-  function iniciarWizard(soloPerfil) {
+  /* prefill: { tipo, tema } cuando la persona ya pidió un material en el chat */
+  function iniciarWizard(soloPerfil, prefill) {
     const p = leerPerfil() || {};
-    wizard = { datos: {}, soloPerfil: !!soloPerfil, n: 0 };
+    wizard = { datos: {}, soloPerfil: !!soloPerfil, n: 0, prefill: prefill || null };
+    if (prefill && !soloPerfil) {
+      if (prefill.tema) wizard.datos.tema = prefill.tema;
+      agregar("bot", `<h3>✏️ Armemos tu prompt paso a paso</h3>
+        <p>Ya sé que quieres ${prefill.tipo ? "<strong>" + escapar(prefill.tipo.nombre.toLowerCase()) + "</strong>" : "un material"}${prefill.tema ? " sobre «" + escapar(prefill.tema) + "»" : ""}. Solo te preguntaré lo que falta.</p>` +
+        chips([{ accion: "wizard-cancelar", valor: "x", etiqueta: "Cancelar" }]));
+      if (!p.rol) { preguntar("rol"); return; }
+      if (prefill.tipo) { aplicarTipo(prefill.tipo); return; }
+      preguntar("tipo");
+      return;
+    }
     if (soloPerfil) {
       agregar("bot", `<h3>📍 Personaliza tu experiencia</h3>
         <p>Con tu rol, tu comuna y tu establecimiento adaptaré las sugerencias y los prompts. Se guarda <strong>solo en este dispositivo</strong>.</p>`);
@@ -378,10 +477,29 @@
         break;
       }
       case "confirmarEst": {
-        const op = wizard.opciones;
-        agregar("bot", `<p>${op.length === 1 ? "¿Te refieres a este establecimiento?" : "¿Te refieres a alguno de estos?"}</p>` +
-          chips(op.map((e) => ({ accion: "wizard", valor: "id:" + e.id, etiqueta: `${e.nombre}${e.comuna ? " (" + e.comuna + ")" : ""}`, primario: op.length === 1 }))
-            .concat([{ accion: "wizard", valor: "otro", etiqueta: "No, es otro" }])));
+        const op = wizard.opciones, exacto = wizard.exacto;
+        agregar("bot", (exacto
+            ? `<p>¿Te refieres a <strong>${escapar(op[0].nombre)}</strong>${op[0].comuna ? " (" + escapar(op[0].comuna) + ")" : ""}?</p>`
+            : `<p>No encontré exactamente «${escapar(wizard.buscado)}». ${op.length === 1 ? "¿Quisiste decir este establecimiento?" : "¿Quisiste decir alguno de estos?"}</p>`) +
+          chips(op.map((e, i) => ({ accion: "wizard", valor: "id:" + e.id, etiqueta: `${e.nombre}${e.comuna ? " (" + e.comuna + ")" : ""}`, primario: i === 0 })), exacto ? "" : "Nombres registrados:") +
+          chips([{ accion: "wizard", valor: "reintentar", etiqueta: "Ninguno: escribir de nuevo" }, { accion: "wizard", valor: "lista", etiqueta: "Ver la lista completa" }]));
+        break;
+      }
+      case "noEncontrado":
+        agregar("bot", `<p>No encontré «${escapar(wizard.buscado)}» entre los ${ESTABLECIMIENTOS.length} establecimientos registrados${d.comuna ? " (busqué en todas las comunas)" : ""}. Para no suponer, ¿qué prefieres?</p>` +
+          chips([
+            { accion: "wizard", valor: "reintentar", etiqueta: "Escribirlo de nuevo", primario: true },
+            { accion: "wizard", valor: "lista", etiqueta: "Ver la lista" },
+            { accion: "wizard", valor: "usar", etiqueta: `Usar «${wizard.buscado}» igual` },
+            { accion: "wizard", valor: "-", etiqueta: "Omitir" }
+          ]));
+        break;
+      case "listaEst": {
+        const deComuna = ESTABLECIMIENTOS.filter((e) => !d.comuna || normalizar(e.comuna) === normalizar(d.comuna));
+        const lista = (deComuna.length ? deComuna : ESTABLECIMIENTOS).slice().sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+        agregar("bot", `<p>Establecimientos registrados${deComuna.length && d.comuna ? " en <strong>" + escapar(d.comuna) + "</strong>" : ""} (${lista.length}). Elige el tuyo:</p>` +
+          chips(lista.map((e) => ({ accion: "wizard", valor: "id:" + e.id, etiqueta: e.nombre + (d.comuna ? "" : " (" + e.comuna + ")") }))) +
+          chips([{ accion: "wizard", valor: "-", etiqueta: "No está en la lista / omitir" }]));
         break;
       }
       case "entorno":
@@ -409,6 +527,15 @@
           chips([{ accion: "wizard", valor: "-", etiqueta: "Omitir este paso" }]));
         break;
     }
+  }
+
+  /* Fija el tipo de material y pregunta solo lo que falta */
+  function aplicarTipo(tipo) {
+    const d = wizard.datos;
+    d.tipo = tipo;
+    if (tipo.curricular) { preguntar("nivel"); return; }
+    if (d.tema && !d.proposito) d.proposito = d.tema;
+    preguntar(d.proposito ? "destinatarios" : "proposito");
   }
 
   /* Después de definir el material, pasa a la parte de ubicación/perfil */
@@ -442,21 +569,22 @@
         const rol = ROLES[valor] ? valor : Object.keys(ROLES).find((k) => normalizar(ROLES[k].nombre).includes(normalizar(valor)) || normalizar(valor).includes(normalizar(ROLES[k].corto)));
         if (!rol) { agregar("bot", `<p>Elige una de las opciones:</p>` + chipsRoles()); return; }
         d.rol = rol; guardarPerfil({ rol });
-        if (wizard.soloPerfil) preguntar("comuna"); else preguntar("tipo");
+        if (wizard.soloPerfil) { preguntar("comuna"); return; }
+        const pre = wizard.prefill && wizard.prefill.tipo;
+        if (pre && pre.roles.includes(rol)) aplicarTipo(pre); else preguntar("tipo");
         return;
       }
       case "tipo": {
         const lista = tiposDelRol(d.rol || p.rol);
         const tipo = lista.find((t) => t.id === valor) || lista.find((t) => normalizar(t.nombre).includes(normalizar(valor)));
         if (!tipo) { agregar("bot", `<p>Elige una de las opciones de material:</p>` + chips(lista.map((t) => ({ accion: "wizard", valor: t.id, etiqueta: t.nombre })))); return; }
-        d.tipo = tipo;
-        preguntar(tipo.curricular ? "nivel" : "proposito");
+        aplicarTipo(tipo);
         return;
       }
       case "nivel":
         d.nivel = valor; d.nivelObj = NIVELES.find((x) => x.nombre === valor) || null;
         preguntar("asignatura"); return;
-      case "asignatura": d.asignatura = valor; preguntar("tema"); return;
+      case "asignatura": d.asignatura = valor; preguntar(d.tema ? "oa" : "tema"); return;
       case "tema": d.tema = valor; preguntar("oa"); return;
       case "oa": d.oa = omitido ? "" : valor; pasoUbicacion(); return;
       case "proposito": d.proposito = valor; preguntar("destinatarios"); return;
@@ -474,18 +602,26 @@
         d.comuna = valor; guardarPerfil({ comuna: valor, establecimiento: "", estId: "", entorno: "" });
         preguntar("establecimiento"); return;
       case "establecimiento":
-      case "confirmarEst": {
+      case "confirmarEst":
+      case "noEncontrado":
+      case "listaEst": {
         if (valor.startsWith("id:")) { const est = ESTABLECIMIENTOS.find((e) => e.id === valor.slice(3)); if (est) { elegirEstablecimiento(est); return; } }
         if (omitido) { guardarPerfil({ establecimiento: "", estId: "" }); preguntar("entorno"); return; }
-        if (valor === "otro") { wizard.paso = "establecimientoLibre"; agregar("bot", `<p>Escribe el nombre de tu establecimiento, o presiona Omitir.</p>` + chips([{ accion: "wizard", valor: "-", etiqueta: "Omitir" }])); return; }
-        const coincidencias = buscarEstablecimiento(valor, d.comuna);
-        if (coincidencias.length && wizard.paso === "establecimiento") { wizard.opciones = coincidencias; wizard.n--; preguntar("confirmarEst"); return; }
-        guardarPerfil({ establecimiento: valor, estId: "" }); d.establecimiento = valor;
-        preguntar("entorno"); return;
+        if (valor === "reintentar") { wizard.paso = "establecimiento"; agregar("bot", `<p>Escribe el nombre de tu establecimiento (no importa si no recuerdas el nombre exacto).</p>`); return; }
+        if (valor === "lista") { wizard.n--; preguntar("listaEst"); return; }
+        if (valor === "usar") { guardarPerfil({ establecimiento: wizard.buscado, estId: "" }); d.establecimiento = wizard.buscado; preguntar("entorno"); return; }
+        // Texto escrito: buscar con tolerancia a errores en TODAS las comunas (prioriza la elegida)
+        if (!ESTABLECIMIENTOS.length) { guardarPerfil({ establecimiento: valor, estId: "" }); d.establecimiento = valor; preguntar("entorno"); return; }
+        const res = buscarEstablecimiento(valor, d.comuna);
+        wizard.buscado = valor; wizard.n--;
+        if (res.length) {
+          wizard.opciones = res.map((r) => r.e);
+          wizard.exacto = res[0].puntaje >= 0.97 && (res.length === 1 || res[1].puntaje < 0.9);
+          if (wizard.exacto) wizard.opciones = [res[0].e];
+          preguntar("confirmarEst");
+        } else preguntar("noEncontrado");
+        return;
       }
-      case "establecimientoLibre":
-        if (!omitido) { guardarPerfil({ establecimiento: valor, estId: "" }); d.establecimiento = valor; }
-        preguntar("entorno"); return;
       case "entorno":
         d.entorno = valor; guardarPerfil({ entorno: valor });
         trasUbicacion(); return;
@@ -585,6 +721,13 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       { texto: prompt });
   }
 
+  /* Ficha breve de un establecimiento registrado */
+  function tarjetaEstablecimiento(est) {
+    const datos = [est.comuna, est.entorno, est.niveles].filter(Boolean).join(" · ");
+    return `<div class="nota">🏫 <strong>${escapar(est.nombre)}</strong>${datos ? " — " + escapar(datos) : ""}` +
+      (est.caracteristicas ? `<br>${escapar(est.caracteristicas)}` : "") + `</div>`;
+  }
+
   /* Tarjeta "Mi establecimiento" */
   function respuestaMiEstablecimiento() {
     const p = leerPerfil() || {};
@@ -612,8 +755,27 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   const RE_PERFIL = /^(mi )?(perfil|rol|mi rol|comuna|mi comuna|cambiar (mi )?(comuna|perfil|establecimiento|rol))[\s!.?]*$/;
   const RE_MIEST = /^(mi (establecimiento|colegio|escuela|liceo|jardin)|caracteristicas de mi (establecimiento|colegio|escuela|liceo))[\s!.?]*$/;
   const RE_GRACIAS = /^(gracias|muchas gracias|ok|vale|perfecto|genial)[\s!.]*$/;
+  // Pedidos de material escritos directamente en el chat
+  const MATERIAL_CLAVES = [
+    [/\bguia/, "guia"], [/\brubrica/, "rubrica"], [/\b(prueba|evaluacion|items|preguntas de alternativa)/, "prueba"],
+    [/\b(clase|planificacion|experiencia de aprendizaje)/, "clase"], [/\binfografia/, "infografia"], [/\bcomunicado|circular/, "comunicado"],
+    [/\b(taller|actividad de convivencia|recreo)/, "taller"], [/\bpauta de (observacion|acompanamiento)|acompanamiento al aula/, "acompanamiento"],
+    [/\b(agenda|jornada|reunion)/, "agenda"], [/\bpme|plan de mejoramiento/, "pme"], [/\bprotocolo/, "protocolo"]
+  ];
+  const RE_PEDIDO = /\b(hazme|haz|crea|creame|genera|generame|disena|disename|necesito|quiero|elabora|elaborame|prepara|preparame|redacta|redactame|arma|armame)\b/;
+  let pendiente = null;   // consulta en espera de una confirmación
 
-  async function procesar(texto, { omitirRevision = false } = {}) {
+  function detectarPedido(n) {
+    if (!RE_PEDIDO.test(n)) return null;
+    const p = leerPerfil() || {};
+    const hallado = MATERIAL_CLAVES.find(([re]) => re.test(n));
+    if (!hallado) return null;
+    const tipo = TIPOS_MATERIAL.find((t) => t.id === hallado[1] && (!p.rol || t.roles.includes(p.rol))) || null;
+    const m = n.match(/\b(?:de|sobre|para trabajar|acerca de)\s+(.{3,80})$/);
+    return { tipo, tema: m ? m[1].trim() : "" };
+  }
+
+  async function procesar(texto, { omitirRevision = false, directo = false, estMencionado = null, yaMostrado = false } = {}) {
     texto = texto.trim();
     if (!texto || ocupado) return;
     const n = normalizar(texto);
@@ -648,11 +810,26 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       }
     }
 
-    agregarUsuario(texto);
+    if (!yaMostrado) agregarUsuario(texto);
 
     if (RE_WIZARD.test(n)) { iniciarWizard(); return; }
     if (RE_PERFIL.test(n)) { iniciarWizard(true); return; }
     if (RE_MIEST.test(n)) { agregar("bot", respuestaMiEstablecimiento()); return; }
+    // "¿Qué establecimientos hay en Florida?": lista exacta desde el PAL (sin pasar por la IA)
+    const pideLista = n.match(/\b(establecimientos|colegios|escuelas|liceos|jardines|salas cuna)\b.*\b(concepcion|chiguayante|florida|hualqui)\b/);
+    if (pideLista && /\b(que|cuales|cuantos|cuantas|lista|listado|hay|nombres)\b/.test(n)) {
+      const comuna = Object.keys(COMUNAS).find((c) => normalizar(c) === pideLista[2]);
+      const filtro = pideLista[1];
+      const lista = ESTABLECIMIENTOS.filter((e) => normalizar(e.comuna) === pideLista[2] &&
+        (filtro === "establecimientos" || filtro === "colegios" ? true :
+         filtro === "escuelas" ? /escuela/i.test(e.nombre) : filtro === "liceos" ? /liceo/i.test(e.nombre) : /jard|sala cuna/i.test(e.nombre)))
+        .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+      agregar("bot", `<h3>🏫 ${escapar(filtro.charAt(0).toUpperCase() + filtro.slice(1))} en ${escapar(comuna)} (${lista.length})</h3>` +
+        (lista.length ? `<ul>${lista.map((e) => `<li><strong>${escapar(e.nombre)}</strong>${e.niveles ? " — " + escapar(e.niveles) : ""}</li>`).join("")}</ul>` : "<p>No hay registros con ese criterio.</p>") +
+        `<div class="nota">Fuente: Plan Anual Local 2026. ${ESTABLECIMIENTOS.some((e) => !e.comuna) ? "Algunos jardines infantiles aún no tienen comuna registrada." : ""}</div>` +
+        chips([{ accion: "perfil-iniciar", valor: "x", etiqueta: "📍 Elegir mi establecimiento", primario: true }]));
+      return;
+    }
     if (RE_SALUDO.test(n)) {
       agregar("bot", `<p>¡Hola! 👋 Soy el asistente de IA del <strong>SLEP Andalién Sur</strong>. Puedo resolver dudas sobre uso ético de la IA, protección de datos, herramientas, prompts y los referentes oficiales de tu rol, o ayudarte a <strong>crear un prompt</strong> para diseñar material.</p>` +
         chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Crear prompt para material", primario: true }, { valor: "¿Qué herramientas de IA puedo usar?" }, { valor: "¿Puedo ingresar datos de estudiantes a la IA?" }]));
@@ -663,12 +840,43 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       return;
     }
 
-    if (!MODO_IA) { agregar("bot", respuestaLocal(texto)); return; }
+    // ¿Menciona un establecimiento? Confirmar el nombre real antes de responder
+    if (!estMencionado && ESTABLECIMIENTOS.length) {
+      const res = detectarMencion(texto);
+      if (res.length) {
+        const exacto = res[0].puntaje >= 0.97 && (res.length === 1 || res[1].puntaje < 0.9);
+        if (exacto) { estMencionado = res[0].e; }
+        else {
+          pendiente = { texto };
+          agregar("bot", `<p>Creo que mencionas un establecimiento, pero no lo encontré escrito así. Para no suponer, ¿te refieres a ${res.length === 1 ? "este" : "alguno de estos"}?</p>` +
+            chips(res.map((r, i) => ({ accion: "mencion", valor: r.e.id, etiqueta: `${r.e.nombre}${r.e.comuna ? " (" + r.e.comuna + ")" : ""}`, primario: i === 0 }))
+              .concat([{ accion: "mencion", valor: "-", etiqueta: "Ninguno, responder igual" }])));
+          return;
+        }
+      }
+    }
+
+    // ¿Pide un material? Ofrecer armarlo paso a paso en vez de suponer nivel y contexto
+    if (!directo) {
+      const pedido = detectarPedido(n);
+      if (pedido) {
+        pendiente = { texto, pedido, estMencionado };
+        agregar("bot", `<p>Entendí que quieres ${pedido.tipo ? "una <strong>" + escapar(pedido.tipo.nombre.toLowerCase()) + "</strong>" : "un material"}${pedido.tema ? " sobre «" + escapar(pedido.tema) + "»" : ""}. ` +
+          `Para no suponer datos importantes (nivel, asignatura u OA, destinatarios, contexto de tu establecimiento), te propongo armarlo paso a paso.</p>` +
+          chips([{ accion: "pedido-paso", valor: "x", etiqueta: "✏️ Sí, paso a paso", primario: true }, { accion: "pedido-directo", valor: "x", etiqueta: "Responder directamente" }]));
+        return;
+      }
+    }
+
+    if (!MODO_IA) {
+      agregar("bot", (estMencionado ? tarjetaEstablecimiento(estMencionado) : "") + respuestaLocal(texto));
+      return;
+    }
 
     ocupado = true; el.enviar.disabled = true;
     const espera = mostrarEscribiendo();
     try {
-      const html = await respuestaIA(texto);
+      const html = await respuestaIA(texto, estMencionado);
       espera.remove();
       agregar("bot", html);
     } catch (e) {
@@ -721,7 +929,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
      11. INTERFAZ: temas, sugerencias, modo, eventos
      ================================================================ */
   function construirTemas() {
-    const orden = ["SLEP", "M1", "M2", "LEY", "M3", "M4", "M5", "DOC", "DIR", "ASI", "EXT"];
+    const orden = ["SLEP", "PAL", "M1", "M2", "LEY", "M3", "M4", "M5", "DOC", "DIR", "ASI", "EXT"];
     const grupos = {};
     CONOCIMIENTO.forEach((f) => { const k = f.fuente === "MINEDUC" ? "M1" : f.fuente; (grupos[k] = grupos[k] || []).push(f); });
     el.temas.innerHTML = orden.filter((k) => grupos[k]).map((k, i) =>
@@ -879,6 +1087,24 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     else if (accion === "perfil-iniciar") { cerrarMenu(); agregarUsuario("Mi perfil"); iniciarWizard(true); }
     else if (accion === "wizard-cancelar") { wizard = null; agregar("bot", "<p>Listo, cancelé el asistente. ¿En qué más te ayudo?</p>"); }
     else if (accion === "enviar-limpio") procesar(valor, { omitirRevision: true });
+    else if (accion === "mencion" && pendiente) {
+      const p = pendiente; pendiente = null;
+      const est = ESTABLECIMIENTOS.find((x) => x.id === valor);
+      agregarUsuario(est ? est.nombre : "Ninguno, responder igual");
+      // Se agrega el nombre real a la consulta antes de responder
+      const texto = est ? `${p.texto} (establecimiento: ${est.nombre})` : p.texto;
+      procesar(texto, { omitirRevision: true, yaMostrado: true, estMencionado: est || null });
+    }
+    else if (accion === "pedido-paso" && pendiente) {
+      const p = pendiente; pendiente = null;
+      agregarUsuario("Sí, paso a paso");
+      iniciarWizard(false, p.pedido);
+    }
+    else if (accion === "pedido-directo" && pendiente) {
+      const p = pendiente; pendiente = null;
+      agregarUsuario("Responder directamente");
+      procesar(p.texto, { omitirRevision: true, yaMostrado: true, directo: true, estMencionado: p.estMencionado });
+    }
   });
 
   $("#btnNueva").addEventListener("click", nuevaConversacion);

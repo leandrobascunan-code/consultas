@@ -23,10 +23,42 @@ const FUENTES = {
   DOC: "Docentes · Bases Curriculares y Marco para la Buena Enseñanza",
   DIR: "Directivos · Marco para la Buena Dirección y recursos de gestión",
   ASI: "Asistentes de la educación y convivencia educativa",
-  SLEP: "Información del Servicio (actualizada por el equipo)"
+  SLEP: "Información del Servicio (actualizada por el equipo)",
+  PAL: "Plan Anual Local 2026 · SLEP Andalién Sur"
 };
 
 const CONOCIMIENTO = [
+  /* ------------------- PLAN ANUAL LOCAL 2026 ------------------- */
+  {
+    id: "pal-ideario", fuente: "PAL", titulo: "Misión, visión y sellos del SLEP Andalién Sur (PAL 2026)",
+    claves: ["pal", "plan anual", "plan anual local", "mision", "vision", "sellos", "ideario", "slep andalien sur", "identidad territorial", "multiculturalidad", "creatividad e innovacion", "formacion integral"],
+    texto: `Según el **Plan Anual Local de Educación Pública 2026** (diciembre de 2025):
+
+**Misión:** entregar educación pública de calidad de manera transversal a los niños, jóvenes y adultos del territorio y la región, con enfoque en la calidad como un concepto cuantitativo y cualitativo de mejora progresiva, que rescata la **identidad territorial** y promueve la **participación activa** de docentes, asistentes de la educación, directivos, apoderados y la ciudadanía.
+
+**Visión:** lograr que la calidad de la educación pública del territorio Andalién Sur responda a las demandas, necesidades e intereses de los estudiantes y a los desafíos de la educación del siglo XXI.
+
+**Sellos:**
+1. **Formación integral:** pleno desarrollo de los estudiantes (artículo 2 de la Ley 21.040): espiritual, social, ético, afectivo, intelectual, artístico y físico, con creatividad, capacidad crítica y valores democráticos.
+2. **Identidad del territorio Andalién Sur:** relevar la historia local de las cuatro comunas en las propuestas formativas, curriculares y extracurriculares.
+3. **Multiculturalidad:** reconocer la diversidad cultural, lingüística, religiosa y socioeconómica; papel clave de los pueblos originarios y de las personas de diversas nacionalidades.
+4. **Creatividad e innovación:** acento formativo en la creatividad e innovación de los procesos pedagógicos y de aprendizaje.
+
+💡 **Para diseñar material con IA:** pida a la herramienta que integre estos sellos. Por ejemplo, actividades que rescaten la **historia local** de su comuna o que valoren la **diversidad cultural** de su curso.`
+  },
+  {
+    id: "pal-territorio", fuente: "PAL", titulo: "El territorio en cifras (PAL 2026)",
+    claves: ["cuantos establecimientos", "matricula", "territorio", "cifras", "jardines vtf", "escuelas rurales", "microcentro", "redes", "establecimientos del slep"],
+    texto: `Según el **Plan Anual Local 2026**:
+- El Servicio administra **80 establecimientos** en Concepción, Chiguayante, Florida y Hualqui: 68 escuelas y liceos, y 12 salas cuna y jardines infantiles VTF.
+- **Matrícula total proyectada 2026:** alrededor de 15.000 estudiantes (15.238 en 2025).
+- Conviven liceos de alta matrícula con **escuelas de muy baja matrícula y cursos combinados (multigrado)**. El Servicio cuenta con un **Microcentro de escuelas rurales**.
+- El PAL señala **15 redes funcionales** en el territorio, que trabajan objetivos mayormente técnicos y disciplinares.
+- Hay establecimientos con modalidades específicas: **educación especial**, **escuela hospitalaria** y **educación de personas jóvenes y adultas**.
+
+Escriba **"¿qué establecimientos hay en Florida?"** (u otra comuna) para ver la lista, o configure su establecimiento en **Mi perfil** para recibir sugerencias según sus características.`
+  },
+
   /* ---------------------------- MANUAL 1 ---------------------------- */
   {
     id: "serie", fuente: "M1", titulo: "¿Qué es la serie de manuales?",
