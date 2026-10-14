@@ -1054,7 +1054,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   };
   const SUG_FINAL = [
     { emoji: "🎓", color: "#e0559b", titulo: "Cursos de IA del CPEIP", texto: "Formación oficial gratuita" },
-    { emoji: "📚", color: "#22a9dc", titulo: "Leer los manuales", texto: "Biblioteca digital de la serie completa", accion: "ir", valor: "manuales.html" }
+    { emoji: "📚", color: "#22a9dc", titulo: "Biblioteca", texto: "Manuales y documentos oficiales (MINEDUC, CPEIP, Ley 21.719)", accion: "ir", valor: "manuales.html" }
   ];
   function construirSugerencias() {
     const p = leerPerfil() || {};

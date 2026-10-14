@@ -94,18 +94,37 @@
     .contenido tr:nth-child(even) td { background: var(--panel-2); }
     mark { background: var(--slep-amarillo); color: #1d2633; border-radius: 3px; padding: 0 2px; }
     .resultado { font-size: .82rem; color: var(--texto-2); }
-    .externos h2 { font-size: 1.3rem; margin: 40px 0 6px; }
-    .externos > p { color: var(--texto-2); margin: 0 0 14px; }
-    .rec-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
-    .rec {
-      --c: #e0559b; display: block; text-decoration: none; color: var(--texto); background: var(--panel);
-      border: 1px solid var(--borde); border-left: 5px solid var(--c); border-radius: 14px; padding: 14px 16px; box-shadow: var(--sombra);
-      transition: transform .12s;
+    /* Pestañas: Manuales del SLEP | Documentos oficiales */
+    .pestanas { display: flex; gap: 10px; margin: 22px 0 4px; flex-wrap: wrap; }
+    .pestanas button {
+      flex: 1; min-width: 200px; border: 2px solid var(--borde); background: var(--panel); color: var(--texto);
+      border-radius: 16px; padding: 14px 18px; font: inherit; font-weight: 800; font-size: 1rem; cursor: pointer; text-align: left;
+      box-shadow: var(--sombra); transition: border-color .15s, transform .12s;
     }
-    .rec:hover { transform: translateY(-2px); }
-    .rec small { font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--c); }
-    .rec strong { display: block; margin: 3px 0; font-size: .95rem; }
-    .rec span { font-size: .82rem; color: var(--texto-2); }
+    .pestanas button small { display: block; font-weight: 500; font-size: .8rem; color: var(--texto-2); margin-top: 2px; }
+    .pestanas button:hover { transform: translateY(-2px); }
+    .pestanas button.activa { border-color: var(--c, var(--azul)); background: color-mix(in srgb, var(--c, var(--azul)) 9%, var(--panel)); }
+    .docs-intro { color: var(--texto-2); margin: 16px 0 12px; }
+    .docs-herr { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+    .filtro { border: 1.5px solid var(--borde); background: var(--panel); color: var(--texto); border-radius: 999px; padding: 7px 13px; font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; }
+    .filtro.activo { background: var(--c, var(--azul)); border-color: var(--c, var(--azul)); color: #fff; }
+    .grupo-doc h2 { display: flex; align-items: center; gap: 10px; font-size: 1.15rem; margin: 26px 0 10px; }
+    .grupo-doc h2 .punto { width: 12px; height: 12px; border-radius: 4px; background: var(--c); }
+    .doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 14px; }
+    .doc {
+      --c: var(--azul); display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--borde);
+      border-top: 5px solid var(--c); border-radius: 16px; padding: 16px 18px; box-shadow: var(--sombra); scroll-margin-top: 90px;
+    }
+    .doc.destacado { box-shadow: 0 0 0 3px var(--slep-amarillo), var(--sombra); }
+    .doc small { font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--c); }
+    .doc h3 { margin: 4px 0 8px; font-size: 1rem; line-height: 1.3; }
+    .doc ul { margin: 0 0 12px; padding-left: 18px; font-size: .86rem; color: var(--texto); line-height: 1.5; }
+    .doc li { margin: 3px 0; }
+    .doc .acciones-doc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: auto; }
+    .doc .acciones-doc a { text-decoration: none; font-size: .82rem; font-weight: 700; border-radius: 10px; padding: 8px 12px; border: 1.5px solid var(--borde); color: var(--texto); background: var(--panel); }
+    .doc .acciones-doc a.principal { background: linear-gradient(135deg, #0071ea, #3abff0); color: #fff; border: 0; }
+    .doc .acciones-doc a:hover { border-color: var(--slep-celeste); }
+    .sin-docs { color: var(--texto-2); text-align: center; padding: 30px; }
     .indice-movil { display: none; margin-bottom: 14px; }
     .indice-movil summary { cursor: pointer; font-weight: 700; padding: 12px 14px; background: var(--panel); border: 1px solid var(--borde); border-radius: 12px; }
     .arriba { position: fixed; right: 18px; bottom: 18px; width: 46px; height: 46px; border-radius: 50%; border: 0; color: #fff; background: linear-gradient(135deg, #0071ea, #3abff0); box-shadow: var(--sombra); font-size: 1.2rem; display: none; }
@@ -123,7 +142,7 @@
       .bib-top img { display: none; }
     }
     @media print {
-      .bib-top, .estante, .indice, .indice-movil, .herr, .externos, .arriba { display: none !important; }
+      .bib-top, .pestanas, .estante, .indice, .indice-movil, .herr, #tabDocs, .arriba { display: none !important; }
       body { background: #fff; }
       .lector { display: block; }
       .hoja { box-shadow: none; border: 0; padding: 0; }
@@ -134,11 +153,17 @@
 <body>
   <header class="bib-top">
     <a class="volver" href="./">← Volver al asistente</a>
-    <h1>📚 Biblioteca de manuales</h1>
+    <h1>📚 Biblioteca</h1>
     <img src="logo-slep.png" alt="SLEP Andalién Sur">
   </header>
 
   <div class="bib">
+    <nav class="pestanas" aria-label="Secciones de la biblioteca">
+      <button type="button" id="pManuales" data-tab="manuales" style="--c:#0071ea">📘 Manuales del SLEP<small>Serie «IA para la gestión educativa» (5 manuales)</small></button>
+      <button type="button" id="pDocs" data-tab="docs" style="--c:#9b59d0">🏛️ Documentos oficiales<small>Ley 21.719, MINEDUC, CPEIP, currículum, convivencia y más</small></button>
+    </nav>
+
+    <div id="tabManuales">
     <section class="estante" id="estante" aria-label="Manuales"></section>
 
     <section class="lector" id="lector">
@@ -157,26 +182,21 @@
       </article>
     </section>
 
-    <section class="externos">
-      <h2>🔗 Documentos oficiales externos sobre IA en educación</h2>
-      <p>Fuentes confiables para profundizar. Abren en el sitio oficial de cada institución.</p>
-      <div class="rec-grid">
-        <a class="rec" style="--c:#0071ea" href="https://ciudadaniadigital.mineduc.cl/recurso/nueva-guia-para-docentes-potencia-el-aprendizaje/" target="_blank" rel="noopener"><small>MINEDUC · 2025</small><strong>PotencIA el aprendizaje</strong><span>Preguntas para la reflexión y práctica de la IA generativa en contextos educativos.</span></a>
-        <a class="rec" style="--c:#0071ea" href="https://ciudadaniadigital.mineduc.cl/recurso/guia-para-docentes-como-usar-chatgpt-para-potenciar-el-aprendizaje-activo/" target="_blank" rel="noopener"><small>MINEDUC · 2023</small><strong>Cómo usar ChatGPT para el aprendizaje activo</strong><span>Guía para docentes de Ciudadanía Digital.</span></a>
-        <a class="rec" style="--c:#0071ea" href="https://ciudadaniadigital.mineduc.cl/ia/" target="_blank" rel="noopener"><small>MINEDUC</small><strong>Portal de IA · Ciudadanía Digital</strong><span>Recursos, webinars, ChatSP, HumanIA y material para el aula.</span></a>
-        <a class="rec" style="--c:#4fa61a" href="https://desarrollodocenteenlinea.cpeip.cl" target="_blank" rel="noopener"><small>CPEIP</small><strong>Cursos de IA para docentes y directivos</strong><span>Formación oficial gratuita en Desarrollo Docente en Línea.</span></a>
-        <a class="rec" style="--c:#4fa61a" href="https://ciudadaniadigital.mineduc.cl/recurso/marco-orientador-de-competencias-digitales-docentes/" target="_blank" rel="noopener"><small>MINEDUC · CPEIP · UNESCO</small><strong>Marco Orientador de Competencias Digitales Docentes</strong><span>Tres dimensiones y cuatro niveles, alineado al Marco para la Buena Enseñanza.</span></a>
-        <a class="rec" style="--c:#9b59d0" href="https://www.bcn.cl/leychile/navegar?idNorma=1208650" target="_blank" rel="noopener"><small>BCN · Ley Chile</small><strong>Ley N.º 21.719 de datos personales</strong><span>Texto oficial. Plena vigencia: 1 de diciembre de 2026.</span></a>
-        <a class="rec" style="--c:#9b59d0" href="https://wikiguias.digital.gob.cl/datos-personales/guia-practica-implementacion-nueva-ley-datos-personales" target="_blank" rel="noopener"><small>Gobierno Digital</small><strong>Guía práctica de la nueva Ley de datos personales</strong><span>Implementación en la Administración del Estado.</span></a>
-        <a class="rec" style="--c:#9b59d0" href="https://www.bcn.cl/leychile/navegar?idNorma=1210664" target="_blank" rel="noopener"><small>BCN · 2025</small><strong>Política Nacional de IA (actualización)</strong><span>Decreto N.º 12, publicado el 28 de enero de 2025.</span></a>
-        <a class="rec" style="--c:#e0559b" href="https://unesdoc.unesco.org/ark:/48223/pf0000389227_spa" target="_blank" rel="noopener"><small>UNESCO · 2023</small><strong>Guía para el uso de IA generativa en educación e investigación</strong><span>Enfoque centrado en el ser humano, privacidad y edad mínima.</span></a>
-        <a class="rec" style="--c:#e0559b" href="https://unesdoc.unesco.org/ark:/48223/pf0000393813" target="_blank" rel="noopener"><small>UNESCO · 2024</small><strong>Marco de competencias en IA para docentes</strong><span>15 competencias en 5 dimensiones; niveles adquirir, profundizar y crear.</span></a>
+    </div>
+
+    <section id="tabDocs" hidden aria-label="Documentos oficiales">
+      <p class="docs-intro">Normativa y documentos oficiales que respaldan los manuales y el uso de IA en la educación pública. Cada ficha resume lo esencial, enlaza a la <strong>fuente oficial</strong> y, cuando es posible, permite descargar el documento.</p>
+      <div class="docs-herr">
+        <input type="search" class="buscar" id="buscarDoc" placeholder="🔍 Buscar documento (ej.: datos personales, MBE, convivencia)…" aria-label="Buscar documento">
       </div>
+      <div class="docs-herr" id="filtrosDoc"></div>
+      <div id="listaDocs"></div>
     </section>
   </div>
   <button class="arriba" id="arriba" aria-label="Volver arriba">↑</button>
 
   <script src="manuales.js"></script>
+  <script src="documentos.js"></script>
   <script>
   (function () {
     "use strict";
@@ -215,7 +235,63 @@
       $("#lector").scrollIntoView({ behavior: "smooth" });
     }
 
+    /* ---------- Pestañas ---------- */
+    function mostrarTab(t) {
+      const docs = t === "docs";
+      $("#tabManuales").hidden = docs; $("#tabDocs").hidden = !docs;
+      $("#pManuales").classList.toggle("activa", !docs); $("#pDocs").classList.toggle("activa", docs);
+      if (docs) document.title = "Documentos oficiales · Biblioteca SLEP Andalién Sur";
+    }
+    $("#pManuales").addEventListener("click", () => { location.hash = "m" + (actual ? actual.n : 1); });
+    $("#pDocs").addEventListener("click", () => { location.hash = "docs"; });
+
+    /* ---------- Documentos oficiales ---------- */
+    const norm = (t) => String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const negrita = (t) => esc(t).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    let filtroCat = "";
+    $("#filtrosDoc").innerHTML = `<button class="filtro activo" data-cat="">Todos (${DOCUMENTOS.length})</button>` +
+      Object.keys(CATEGORIAS_DOC).map((c) => { const C = CATEGORIAS_DOC[c]; const n = DOCUMENTOS.filter((d) => d.cat === c).length;
+        return n ? `<button class="filtro" data-cat="${c}" style="--c:${C.color}">${C.emoji} ${esc(C.nombre)} (${n})</button>` : ""; }).join("");
+
+    function tarjetaDoc(d) {
+      const C = CATEGORIAS_DOC[d.cat];
+      const web = /^https?:\/\//.test(d.url);
+      const acciones = [];
+      if (web) acciones.push(`<a class="principal" href="${esc(d.url)}" target="_blank" rel="noopener">Abrir en sitio oficial ↗</a>`);
+      if (d.pdf) acciones.push(`<a class="${web ? "" : "principal"}" href="${esc(d.pdf)}" target="_blank" rel="noopener">👁 Leer en línea</a>`, `<a href="${esc(d.pdf)}" download>⬇ Descargar PDF</a>`);
+      if (d.pdfOficial && d.pdfOficial !== d.url) acciones.push(`<a href="${esc(d.pdfOficial)}" target="_blank" rel="noopener">📄 PDF oficial ↗</a>`);
+      const puntos = d.resumen.split("\n").map((l) => `<li>${negrita(l.replace(/^-\s*/, ""))}</li>`).join("");
+      return `<article class="doc" id="doc-${esc(d.id)}" style="--c:${C.color}">
+        <small>${esc(d.org)}${d.anio ? " · " + esc(d.anio) : ""}</small><h3>${esc(d.titulo)}</h3><ul>${puntos}</ul>
+        <div class="acciones-doc">${acciones.join("")}</div></article>`;
+    }
+    function pintarDocs() {
+      const q = norm($("#buscarDoc").value.trim());
+      const vis = DOCUMENTOS.filter((d) => (!filtroCat || d.cat === filtroCat) && (!q || norm(d.titulo + " " + d.org + " " + d.resumen).includes(q)));
+      const html = Object.keys(CATEGORIAS_DOC).map((c) => {
+        const ds = vis.filter((d) => d.cat === c); if (!ds.length) return "";
+        const C = CATEGORIAS_DOC[c];
+        return `<section class="grupo-doc" style="--c:${C.color}"><h2><span class="punto"></span>${C.emoji} ${esc(C.nombre)}</h2><div class="doc-grid">${ds.map(tarjetaDoc).join("")}</div></section>`;
+      }).join("");
+      $("#listaDocs").innerHTML = html || `<p class="sin-docs">No encontré documentos con ese criterio.</p>`;
+    }
+    $("#filtrosDoc").addEventListener("click", (e) => {
+      const b = e.target.closest(".filtro"); if (!b) return;
+      filtroCat = b.dataset.cat;
+      document.querySelectorAll("#filtrosDoc .filtro").forEach((x) => x.classList.toggle("activo", x === b));
+      pintarDocs();
+    });
+    $("#buscarDoc").addEventListener("input", pintarDocs);
+
     function desdeHash() {
+      const h = location.hash;
+      if (h === "#docs" || h.startsWith("#doc-")) {
+        mostrarTab("docs"); pintarDocs();
+        if (h.startsWith("#doc-")) { const tarjeta = document.getElementById(h.slice(1)); if (tarjeta) { tarjeta.classList.add("destacado"); tarjeta.scrollIntoView({ block: "center" }); } }
+        else scrollTo(0, 0);
+        return;
+      }
+      mostrarTab("manuales");
       const m = location.hash.match(/^#m(\d)(?:\/(.+))?$/);
       const n = m ? +m[1] : 1;
       if (!actual || actual.n !== n) abrir(n, m && m[2] ? decodeURIComponent(m[2]) : null);
@@ -283,8 +359,8 @@
     window.addEventListener("scroll", () => { $("#arriba").style.display = scrollY > 600 ? "block" : "none"; });
     $("#arriba").addEventListener("click", () => scrollTo({ top: 0, behavior: "smooth" }));
 
+    if (!location.hash.startsWith("#doc-")) scrollTo(0, 0);
     desdeHash();
-    scrollTo(0, 0);
   })();
   </script>
 </body>
