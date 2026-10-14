@@ -12,7 +12,7 @@
       público en GitHub (Manual 5, apartado 1.1).
    ===================================================================== */
 const CONFIG = {
-  API: "",
+  API: "https://script.google.com/a/macros/andaliensur.cl/s/AKfycbyIJskXlsYBus4q7tf1DQMW8hkDGZKb_Fa0At6CPu9O1kFCT0QOi4qOBYFGVQ7j4QM1/exec",
   NOMBRE: "Asistente IA Educativa",
   INSTITUCION: "SLEP Andalién Sur"
 };

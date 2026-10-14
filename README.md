@@ -27,17 +27,10 @@ Las respuestas se basan en:
 ## Estructura
 
 ```
-├── index.html            Página del chat
-├── css/estilos.css       Diseño visual
-├── js/config.js          Dirección de la API (sin secretos)
-├── js/conocimiento.js    Base de conocimiento (editable)
-├── js/app.js             Lógica del chat
-├── manifest.webmanifest  Datos de la aplicación instalable
-├── sw.js                 Funcionamiento sin conexión (subir VERSION al actualizar)
-├── img/logo-slep.png     Logo institucional
-├── img/iconos/           Íconos de la aplicación
-├── img/ayuda.jpg         Ilustración
-└── docs/MANUAL.md        Manual de publicación y operación
+Todos los archivos van en la RAIZ del repositorio (sin carpetas):
+index.html, manifest.webmanifest, sw.js, estilos.css,
+config.js, conocimiento.js, app.js, logo-slep.png, ayuda.jpg,
+7 iconos (icon-*, apple-touch-icon, favicon-*), README.md, MANUAL.md
 ```
 
 ## Publicar en GitHub Pages (resumen)
@@ -47,7 +40,7 @@ Las respuestas se basan en:
 3. **Settings → Pages → Deploy from a branch → main / (root) → Save**.
 4. Marque **Enforce HTTPS**.
 
-Instrucciones completas, modo IA y mantenimiento en [docs/MANUAL.md](docs/MANUAL.md).
+Instrucciones completas, modo IA y mantenimiento en [MANUAL.md](MANUAL.md).
 
 ## Responsables
 
