@@ -1,7 +1,7 @@
 /* Service worker: permite instalar la app y usarla sin conexión (modo guías).
    Al publicar cambios, suba el número de VERSION para que los usuarios
    reciban la versión nueva. */
-const VERSION = "asistente-slep-v5";
+const VERSION = "asistente-slep-v6";
 const ARCHIVOS = [
   "./",
   "index.html",
@@ -11,7 +11,9 @@ const ARCHIVOS = [
   "estilos.css",
   "config.js",
   "conocimiento.js",
+  "establecimientos.js",
   "app.js",
+  "logos-establecimientos.jpg",
   "logo-slep.png",
   "ayuda.jpg",
   "icon-192.png",
@@ -36,6 +38,7 @@ self.addEventListener("activate", (e) => {
 self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (e.request.method !== "GET" || url.origin !== self.location.origin) return;
+  if (url.pathname.endsWith("admin.html")) return;   // el panel de configuración nunca se guarda en caché
   e.respondWith(
     fetch(e.request)
       .then((r) => {

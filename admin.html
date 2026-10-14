@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Panel de configuración · Asistente IA SLEP Andalién Sur</title>
+  <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="estilos.css">
+  <style>
+    body { overflow-y: auto; }
+    .adm-top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 20px; background: #1d2633; color: #fff; }
+    .adm-top::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--arcoiris); }
+    .adm-top h1 { margin: 0; font-size: 1.05rem; flex: 1; }
+    .adm-top .tag { font-size: .72rem; font-weight: 800; background: var(--slep-amarillo); color: #3a2a00; padding: 3px 9px; border-radius: 999px; }
+    .adm { max-width: 1100px; margin: 0 auto; padding: 22px 18px 60px; }
+    .tarjeta { background: var(--panel); border: 1px solid var(--borde); border-radius: 18px; box-shadow: var(--sombra); padding: 20px 22px; margin-bottom: 18px; }
+    .tarjeta h2 { margin: 0 0 6px; font-size: 1.1rem; }
+    .tarjeta p { margin: 0 0 10px; color: var(--texto-2); font-size: .9rem; }
+    .login { max-width: 420px; margin: 8vh auto 0; text-align: center; }
+    .login img { width: 200px; background: #fff; border-radius: 12px; padding: 6px 10px; margin-bottom: 10px; }
+    label { display: block; font-size: .82rem; font-weight: 700; margin: 12px 0 5px; }
+    input[type=text], input[type=password], select, textarea {
+      width: 100%; font: inherit; font-size: .92rem; color: var(--texto); background: var(--panel);
+      border: 1.5px solid var(--borde); border-radius: 11px; padding: 10px 12px;
+    }
+    textarea { min-height: 120px; resize: vertical; line-height: 1.5; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--slep-celeste); box-shadow: 0 0 0 3px rgba(58,191,240,.18); }
+    .fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0 14px; }
+    .btn { border: 0; border-radius: 11px; padding: 10px 16px; font: inherit; font-weight: 700; font-size: .88rem; cursor: pointer; }
+    .btn.primario { background: linear-gradient(135deg, #0071ea, #3abff0); color: #fff; }
+    .btn.sec { background: var(--panel-2); color: var(--texto); border: 1.5px solid var(--borde); }
+    .btn.peligro { background: var(--rojo-suave); color: var(--rojo); }
+    .btn:disabled { opacity: .5; cursor: wait; }
+    .acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
+    .msg-estado { font-size: .86rem; font-weight: 600; }
+    .msg-estado.ok { color: var(--verde); } .msg-estado.error { color: var(--rojo); }
+    .filtros { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 12px; }
+    .filtros button { border: 1.5px solid var(--borde); background: var(--panel); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: .82rem; cursor: pointer; }
+    .filtros button.activo { background: var(--azul); color: #fff; border-color: var(--azul); }
+    .lista { display: grid; gap: 10px; }
+    .item { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--borde); border-left: 5px solid var(--c, var(--azul)); border-radius: 14px; padding: 12px 14px; background: var(--panel); }
+    .item .info { flex: 1; min-width: 0; }
+    .item strong { display: block; }
+    .item small { color: var(--texto-2); font-size: .78rem; }
+    .item p { margin: 6px 0 0; font-size: .84rem; color: var(--texto-2); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .item .inactivo { color: var(--rojo); font-weight: 700; }
+    .ayuda { font-size: .78rem; color: var(--texto-2); margin-top: 4px; }
+    .aviso { background: var(--amarillo-suave); border-left: 5px solid var(--slep-amarillo); border-radius: 12px; padding: 12px 14px; font-size: .86rem; margin-bottom: 14px; }
+    .vacio { text-align: center; color: var(--texto-2); padding: 20px; }
+    @media (max-width: 640px) { .item { flex-direction: column; } }
+  </style>
+</head>
+<body>
+  <header class="adm-top">
+    <h1>⚙️ Panel de configuración · Asistente IA</h1>
+    <span class="tag">ACCESO RESTRINGIDO</span>
+    <button class="btn sec" id="btnSalir" hidden>Cerrar sesión</button>
+  </header>
+
+  <main class="adm">
+    <!-- INGRESO -->
+    <section class="tarjeta login" id="vistaLogin">
+      <img src="logo-slep.png" alt="SLEP Andalién Sur">
+      <h2>Ingreso al panel</h2>
+      <p>Solo para el equipo autorizado del Servicio. La clave se verifica en el servidor.</p>
+      <form id="formLogin">
+        <label for="clave">Clave de acceso</label>
+        <input type="password" id="clave" autocomplete="current-password" required>
+        <div class="acciones" style="justify-content:center">
+          <button class="btn primario" id="btnEntrar" type="submit">Ingresar</button>
+        </div>
+        <p class="msg-estado" id="estadoLogin"></p>
+      </form>
+    </section>
+
+    <!-- PANEL -->
+    <div id="vistaPanel" hidden>
+      <section class="tarjeta">
+        <h2>¿Para qué sirve este panel?</h2>
+        <p>Lo que guarde aquí aparece en el asistente <strong>sin necesidad de modificar GitHub</strong>: el chat lo usa para responder y lo muestra en el grupo <em>"Información del Servicio"</em>.</p>
+        <div class="aviso">🔒 <strong>Solo información institucional.</strong> No ingrese nombres de estudiantes, RUT, correos, teléfonos ni datos de salud (Ley 21.719, Manual 2). El sistema rechaza RUT, correos y teléfonos.</div>
+        <p>Tipos de registro:</p>
+        <ul class="ayuda" style="font-size:.86rem">
+          <li><strong>Información del Servicio:</strong> orientaciones, fechas o acuerdos (por ejemplo, una actualización del PAL).</li>
+          <li><strong>Recurso con enlaces:</strong> documentos, sitios o cursos recomendados.</li>
+          <li><strong>Establecimiento (PAL):</strong> nombre, comuna, entorno, niveles y características según el Plan Anual Local. El asistente lo reconoce cuando alguien escribe el nombre de su colegio.</li>
+        </ul>
+        <p class="ayuda" id="enlacePlanilla"></p>
+      </section>
+
+      <section class="tarjeta" id="vistaForm">
+        <h2 id="tituloForm">➕ Nuevo registro</h2>
+        <form id="formItem">
+          <input type="hidden" id="fId">
+          <div class="fila">
+            <div><label for="fTipo">Tipo</label>
+              <select id="fTipo">
+                <option value="info">Información del Servicio</option>
+                <option value="enlace">Recurso con enlaces</option>
+                <option value="establecimiento">Establecimiento (PAL)</option>
+              </select></div>
+            <div><label for="fTitulo" id="lblTitulo">Título</label><input type="text" id="fTitulo" maxlength="200" required></div>
+          </div>
+          <div class="fila soloEst">
+            <div><label for="fComuna">Comuna</label>
+              <select id="fComuna"><option value="">—</option><option>Concepción</option><option>Chiguayante</option><option>Florida</option><option>Hualqui</option></select></div>
+            <div><label for="fEntorno">Entorno</label>
+              <select id="fEntorno"><option value="">—</option><option>Urbano</option><option>Rural</option><option>Mixto (urbano y rural)</option></select></div>
+            <div><label for="fNiveles">Niveles que imparte</label><input type="text" id="fNiveles" maxlength="200" placeholder="Ej.: Parvularia a 8° básico"></div>
+          </div>
+          <label for="fClaves" id="lblClaves">Palabras clave (separadas por coma)</label>
+          <input type="text" id="fClaves" maxlength="500" placeholder="Ej.: pal, plan anual, metas 2026">
+          <p class="ayuda" id="ayudaClaves">Palabras con que la gente preguntaría por este tema.</p>
+          <label for="fTexto" id="lblTexto">Contenido</label>
+          <textarea id="fTexto" maxlength="8000" placeholder="Puede usar **negritas** y listas con guiones (-)."></textarea>
+          <label for="fEnlaces">Enlaces (uno por línea: Título | https://...)</label>
+          <textarea id="fEnlaces" maxlength="3000" style="min-height:70px" placeholder="Plan Anual Local 2026 | https://andaliensur.gob.cl/..."></textarea>
+          <label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="fActivo" checked> Visible en el asistente</label>
+          <div class="acciones">
+            <button class="btn primario" type="submit" id="btnGuardar">Guardar</button>
+            <button class="btn sec" type="button" id="btnLimpiar">Limpiar / nuevo</button>
+            <span class="msg-estado" id="estadoForm"></span>
+          </div>
+        </form>
+      </section>
+
+      <section class="tarjeta">
+        <h2>📥 Carga masiva de establecimientos (desde el PAL)</h2>
+        <p>Una línea por establecimiento, con los campos separados por punto y coma:<br>
+          <code>Nombre ; Comuna ; Entorno ; Niveles ; Características</code></p>
+        <textarea id="masivo" placeholder="Escuela Ejemplo ; Florida ; Rural ; Parvularia a 8° básico ; Sello medioambiental, escuela multigrado, foco en lectura inicial"></textarea>
+        <div class="acciones">
+          <button class="btn primario" type="button" id="btnMasivo">Cargar establecimientos</button>
+          <span class="msg-estado" id="estadoMasivo"></span>
+        </div>
+      </section>
+
+      <section class="tarjeta">
+        <h2>📋 Registros guardados</h2>
+        <div class="filtros" id="filtros">
+          <button class="activo" data-f="">Todos</button>
+          <button data-f="info">Información</button>
+          <button data-f="enlace">Recursos</button>
+          <button data-f="establecimiento">Establecimientos</button>
+        </div>
+        <input type="text" id="buscarItem" placeholder="🔍 Buscar por título o comuna…" style="margin-bottom:12px">
+        <div class="lista" id="lista"><p class="vacio">Cargando…</p></div>
+      </section>
+    </div>
+  </main>
+
+  <script src="config.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    const $ = (s) => document.querySelector(s);
+    const esc = (t) => String(t == null ? "" : t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const API = (typeof CONFIG !== "undefined" && CONFIG.API) || "";
+    const PERSONALES = /\b\d{1,2}\.?\d{3}\.?\d{3}\s?-\s?[\dkK]\b|\b[\w.+-]+@[\w-]+\.[\w.-]+\b|(\+?56\s?)?\b9\s?\d{4}\s?\d{4}\b/;
+    const COLOR = { info: "#0071ea", enlace: "#e0559b", establecimiento: "#4fa61a" };
+    const NOMBRE_TIPO = { info: "Información", enlace: "Recurso", establecimiento: "Establecimiento" };
+    let clave = "", items = [], filtro = "";
+
+    // La clave solo vive mientras la pestaña está abierta (sessionStorage)
+    try { clave = sessionStorage.getItem("slep-admin") || ""; } catch (e) {}
+
+    async function llamar(accion, extra) {
+      if (!API) throw new Error("El asistente no tiene configurada la URL de Apps Script (config.js).");
+      const r = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ accion, clave }, extra || {})) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || "Error desconocido");
+      return d;
+    }
+    function estado(sel, texto, tipo) { const e = $(sel); e.textContent = texto; e.className = "msg-estado " + (tipo || ""); }
+
+    async function entrar(e) {
+      if (e) e.preventDefault();
+      if (!clave) clave = $("#clave").value;
+      $("#btnEntrar").disabled = true; estado("#estadoLogin", "Verificando…");
+      try {
+        const d = await llamar("admin-entrar");
+        try { sessionStorage.setItem("slep-admin", clave); } catch (err) {}
+        $("#vistaLogin").hidden = true; $("#vistaPanel").hidden = false; $("#btnSalir").hidden = false;
+        if (d.planilla) $("#enlacePlanilla").innerHTML = `📄 Los datos se guardan en esta planilla de Google (también se pueden revisar allí): <a href="${esc(d.planilla)}" target="_blank" rel="noopener">abrir planilla</a>`;
+        cargar();
+      } catch (err) {
+        clave = ""; try { sessionStorage.removeItem("slep-admin"); } catch (e2) {}
+        estado("#estadoLogin", err.message, "error");
+      } finally { $("#btnEntrar").disabled = false; }
+    }
+
+    async function cargar() {
+      try { items = (await llamar("admin-listar")).items || []; pintar(); }
+      catch (err) { $("#lista").innerHTML = `<p class="vacio">No se pudo cargar: ${esc(err.message)}</p>`; }
+    }
+
+    function pintar() {
+      const q = $("#buscarItem").value.toLowerCase();
+      const vis = items.filter((i) => (!filtro || i.tipo === filtro) && (!q || (i.titulo + " " + i.comuna).toLowerCase().includes(q)));
+      $("#lista").innerHTML = vis.length ? vis.map((i) => `
+        <div class="item" style="--c:${COLOR[i.tipo] || "#0071ea"}">
+          <div class="info">
+            <strong>${esc(i.titulo)}</strong>
+            <small>${esc(NOMBRE_TIPO[i.tipo] || i.tipo)}${i.comuna ? " · " + esc(i.comuna) : ""}${i.entorno ? " · " + esc(i.entorno) : ""} · Actualizado: ${esc(i.actualizado)} ${i.activo ? "" : '· <span class="inactivo">OCULTO</span>'}</small>
+            <p>${esc(i.texto)}</p>
+          </div>
+          <div class="acciones" style="margin:0">
+            <button class="btn sec" data-editar="${esc(i.id)}">Editar</button>
+            <button class="btn peligro" data-borrar="${esc(i.id)}">Eliminar</button>
+          </div>
+        </div>`).join("") : `<p class="vacio">No hay registros${filtro ? " de este tipo" : ""} todavía.</p>`;
+    }
+
+    function ajustarForm() {
+      const est = $("#fTipo").value === "establecimiento";
+      document.querySelectorAll(".soloEst").forEach((x) => { x.style.display = est ? "" : "none"; });
+      $("#lblTitulo").textContent = est ? "Nombre del establecimiento" : "Título";
+      $("#lblTexto").textContent = est ? "Características (según el PAL)" : "Contenido";
+      $("#lblClaves").textContent = est ? "Otros nombres con que se le conoce (opcional)" : "Palabras clave (separadas por coma)";
+      $("#ayudaClaves").textContent = est ? "Ej.: sigla o nombre corto, para reconocerlo cuando alguien lo escriba." : "Palabras con que la gente preguntaría por este tema.";
+      $("#fTexto").placeholder = est ? "Ej.: sello, programas (PIE, SEP), desafíos y focos del PAL, realidad del entorno. Sin datos personales." : "Puede usar **negritas** y listas con guiones (-).";
+    }
+    function limpiarForm() {
+      $("#formItem").reset(); $("#fId").value = ""; $("#tituloForm").textContent = "➕ Nuevo registro"; ajustarForm(); estado("#estadoForm", "");
+    }
+    function editar(id) {
+      const i = items.find((x) => x.id === id); if (!i) return;
+      $("#fId").value = i.id; $("#fTipo").value = i.tipo; $("#fTitulo").value = i.titulo; $("#fComuna").value = i.comuna || "";
+      $("#fEntorno").value = i.entorno || ""; $("#fNiveles").value = i.niveles || ""; $("#fClaves").value = i.claves || "";
+      $("#fTexto").value = i.texto || ""; $("#fEnlaces").value = i.enlaces || ""; $("#fActivo").checked = i.activo;
+      $("#tituloForm").textContent = "✏️ Editando: " + i.titulo; ajustarForm();
+      $("#vistaForm").scrollIntoView({ behavior: "smooth" });
+    }
+
+    async function guardar(e) {
+      e.preventDefault();
+      const item = { id: $("#fId").value, tipo: $("#fTipo").value, titulo: $("#fTitulo").value, comuna: $("#fComuna").value, entorno: $("#fEntorno").value,
+        niveles: $("#fNiveles").value, claves: $("#fClaves").value, texto: $("#fTexto").value, enlaces: $("#fEnlaces").value, activo: $("#fActivo").checked };
+      if (PERSONALES.test(item.texto + " " + item.titulo)) { estado("#estadoForm", "⚠️ Detecté un RUT, correo o teléfono. Quítelo antes de guardar.", "error"); return; }
+      const malEnlace = item.enlaces.split("\n").filter((l) => l.trim() && !/https?:\/\//.test(l));
+      if (malEnlace.length) { estado("#estadoForm", "⚠️ Cada enlace debe incluir https://", "error"); return; }
+      $("#btnGuardar").disabled = true; estado("#estadoForm", "Guardando…");
+      try { await llamar("admin-guardar", { item }); estado("#estadoForm", "✅ Guardado. Ya está disponible en el asistente.", "ok"); limpiarForm(); estado("#estadoForm", "✅ Guardado.", "ok"); cargar(); }
+      catch (err) { estado("#estadoForm", err.message, "error"); }
+      finally { $("#btnGuardar").disabled = false; }
+    }
+
+    async function borrar(id) {
+      const i = items.find((x) => x.id === id);
+      if (!confirm(`¿Eliminar definitivamente "${i ? i.titulo : id}"? Si solo quiere ocultarlo, edítelo y desmarque "Visible".`)) return;
+      try { await llamar("admin-eliminar", { id }); cargar(); } catch (err) { alert(err.message); }
+    }
+
+    async function cargaMasiva() {
+      const lineas = $("#masivo").value.split("\n").map((l) => l.trim()).filter(Boolean);
+      if (!lineas.length) return;
+      if (PERSONALES.test(lineas.join(" "))) { estado("#estadoMasivo", "⚠️ Hay un RUT, correo o teléfono. Quítelo antes de cargar.", "error"); return; }
+      $("#btnMasivo").disabled = true;
+      let ok = 0, errores = [];
+      for (const [n, l] of lineas.entries()) {
+        const [titulo, comuna, entorno, niveles, ...resto] = l.split(";").map((x) => x.trim());
+        estado("#estadoMasivo", `Cargando ${n + 1} de ${lineas.length}…`);
+        try { await llamar("admin-guardar", { item: { tipo: "establecimiento", titulo, comuna, entorno, niveles, texto: resto.join("; "), activo: true } }); ok++; }
+        catch (err) { errores.push(`Línea ${n + 1}: ${err.message}`); }
+      }
+      estado("#estadoMasivo", `✅ ${ok} cargados.` + (errores.length ? ` ⚠️ ${errores.join(" · ")}` : ""), errores.length ? "error" : "ok");
+      if (!errores.length) $("#masivo").value = "";
+      $("#btnMasivo").disabled = false; cargar();
+    }
+
+    $("#formLogin").addEventListener("submit", (e) => { clave = ""; entrar(e); });
+    $("#formItem").addEventListener("submit", guardar);
+    $("#fTipo").addEventListener("change", ajustarForm);
+    $("#btnLimpiar").addEventListener("click", limpiarForm);
+    $("#btnMasivo").addEventListener("click", cargaMasiva);
+    $("#buscarItem").addEventListener("input", pintar);
+    $("#filtros").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      filtro = b.dataset.f; document.querySelectorAll("#filtros button").forEach((x) => x.classList.toggle("activo", x === b)); pintar();
+    });
+    $("#lista").addEventListener("click", (e) => {
+      const ed = e.target.closest("[data-editar]"); if (ed) return editar(ed.dataset.editar);
+      const bo = e.target.closest("[data-borrar]"); if (bo) return borrar(bo.dataset.borrar);
+    });
+    $("#btnSalir").addEventListener("click", () => { try { sessionStorage.removeItem("slep-admin"); } catch (e) {} location.reload(); });
+
+    ajustarForm();
+    if (clave) entrar();
+  })();
+  </script>
+</body>
+</html>

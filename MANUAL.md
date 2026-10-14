@@ -111,8 +111,24 @@ Para probar en local, abra la carpeta con cualquier servidor web estático (por 
 
 ---
 
+## 5b. Panel de configuración (admin.html)
+
+Página aparte, **no enlazada** desde el asistente: `https://USUARIO.github.io/REPOSITORIO/admin.html`.
+
+- La clave se verifica en **Apps Script**, nunca en GitHub. Para cambiarla: Propiedades del script → `CLAVE_ADMIN` (mínimo 8 caracteres).
+- Diez intentos fallidos bloquean el panel por 15 minutos.
+- Lo guardado queda en una planilla de Google, que se crea al ejecutar `configurarContenido` en el editor de Apps Script.
+- Tipos de registro: **Información del Servicio**, **Recurso con enlaces** y **Establecimiento (PAL)**.
+- **Carga masiva** de establecimientos, una línea por establecimiento: `Nombre ; Comuna ; Entorno ; Niveles ; Características`
+- Solo información institucional: el sistema rechaza RUT, correos y teléfonos.
+
+El asistente descarga este contenido al abrirse y lo usa para responder y para reconocer establecimientos en el perfil.
+
+---
+
 ## 6. Registro de cambios
 
 | Fecha | Cambio | Responsable |
 |---|---|---|
 | 2026-10-14 | Versión inicial | _[completar]_ |
+| 2026-10-14 | Roles, Bases Curriculares, MBE, MBDLE, convivencia, panel de configuración y manuales con logos | _[completar]_ |

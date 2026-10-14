@@ -180,7 +180,7 @@ button { font: inherit; cursor: pointer; }
 .only-mobile { display: none; }
 
 /* ------------------------------- Chat ------------------------------- */
-.chat { flex: 1; overflow-y: auto; padding: 28px 24px 12px; scroll-behavior: smooth; }
+.chat { flex: 1; overflow-y: auto; padding: 28px 24px 12px; }
 .bienvenida, .mensajes { max-width: 880px; margin: 0 auto; }
 
 .hero {
@@ -225,6 +225,13 @@ button { font: inherit; cursor: pointer; }
   background: var(--verde-suave); border-radius: 999px; width: fit-content; max-width: 100%;
 }
 .aviso-datos svg { color: var(--verde); flex-shrink: 0; }
+
+.elaborado {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 4px auto 26px;
+  padding: 14px 18px 16px; background: #fff; border: 1px solid var(--borde); border-radius: 18px; max-width: 560px;
+}
+.elaborado span { font-size: .74rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #5a6678; }
+.elaborado img { width: 100%; height: auto; display: block; }
 
 /* Mensajes */
 .msg { display: flex; gap: 12px; margin: 18px 0; animation: entra .25s ease-out; }

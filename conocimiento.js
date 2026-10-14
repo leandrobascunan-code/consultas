@@ -19,7 +19,11 @@ const FUENTES = {
   M5: "Manual 5 · Soporte técnico",
   LEY: "Ley N.º 21.719 · Protección de datos personales",
   MINEDUC: "MINEDUC · PotencIA el aprendizaje (2025)",
-  EXT: "Fuentes oficiales externas (MINEDUC, CPEIP, UNESCO)"
+  EXT: "Fuentes oficiales externas (MINEDUC, CPEIP, UNESCO)",
+  DOC: "Docentes · Bases Curriculares y Marco para la Buena Enseñanza",
+  DIR: "Directivos · Marco para la Buena Dirección y recursos de gestión",
+  ASI: "Asistentes de la educación y convivencia educativa",
+  SLEP: "Información del Servicio (actualizada por el equipo)"
 };
 
 const CONOCIMIENTO = [
@@ -809,24 +813,223 @@ En el ámbito escolar plantea, entre otros objetivos:
 - **UNESCO · IA en educación:** 🔗 [unesco.org](https://www.unesco.org/en/digital-education/artificial-intelligence)
 
 **Regla práctica:** si una norma, cifra o recurso no aparece en un sitio oficial, no se usa en un documento institucional.`
+  },
+
+  /* ------------------- DOCENTES: CURRÍCULUM Y MBE ------------------- */
+  {
+    id: "doc-bases", fuente: "DOC", titulo: "Bases Curriculares: ¿cuál corresponde a mi nivel?",
+    claves: ["bases curriculares", "curriculum", "curriculo", "oa", "objetivos de aprendizaje", "programa de estudio", "asignatura", "nivel", "curriculum nacional", "planificar"],
+    texto: `Las **Bases Curriculares** definen los **Objetivos de Aprendizaje (OA)** de cada nivel y asignatura. Las vigentes, según el sitio oficial Currículum Nacional:
+
+| Nivel | Bases Curriculares |
+|---|---|
+| Sala cuna a transición | **Educación Parvularia** (vigentes desde 2019) |
+| 1° a 6° básico | **Bases 1° a 6° básico** (y Lengua y Cultura de los Pueblos Originarios Ancestrales) |
+| 7° básico a 2° medio | **Bases 7° básico a 2° medio** |
+| 3° y 4° medio | **Bases 3° y 4° medio** (formación general, plan común electivo y formación diferenciada) |
+| 3° y 4° medio TP | **Formación Diferenciada Técnico-Profesional** |
+| Personas jóvenes y adultas | **Bases EPJA 2024** |
+
+**Cómo usarlas con IA:** copie el OA exacto desde el sitio oficial y péguelo en el prompt. **No pida a la IA que "cite" OA**: suele inventarlos o mezclarlos con otros países (Manual 4).
+
+🔗 [Bases Curriculares (curriculumnacional.cl)](https://www.curriculumnacional.cl/Curriculum/Bases_Curriculares)
+💡 Escriba **"crear prompt"**: el asistente le pedirá su OA.`
+  },
+  {
+    id: "doc-asignaturas", fuente: "DOC", titulo: "Asignaturas por nivel según las Bases Curriculares",
+    claves: ["asignaturas", "disciplina", "lenguaje", "matematica", "ciencias", "historia", "ingles", "artes", "musica", "educacion fisica", "tecnologia", "orientacion", "filosofia", "educacion ciudadana", "ciencias para la ciudadania", "nucleos", "ambitos"],
+    texto: `**Educación Parvularia** — 3 ámbitos: **Desarrollo Personal y Social** (Identidad y Autonomía; Convivencia y Ciudadanía; Corporalidad y Movimiento), **Comunicación Integral** (Lenguaje Verbal; Lenguajes Artísticos) e **Interacción y Comprensión del Entorno** (Exploración del Entorno Natural; Comprensión del Entorno Sociocultural; Pensamiento Matemático).
+
+**1° a 6° básico:** Lenguaje y Comunicación, Matemática, Ciencias Naturales, Historia, Geografía y Ciencias Sociales, Inglés, Artes Visuales, Música, Educación Física y Salud, Tecnología y Orientación.
+
+**7° básico a 2° medio:** Lengua y Literatura, Matemática, Ciencias Naturales, Historia, Geografía y Ciencias Sociales, Inglés, Artes Visuales, Música, Educación Física y Salud, Tecnología y Orientación.
+
+**3° y 4° medio — formación general:** Lengua y Literatura, Matemática, Educación Ciudadana, Filosofía, Inglés y Ciencias para la Ciudadanía, más asignaturas del plan común electivo y la formación diferenciada (humanístico-científica, técnico-profesional o artística).
+
+Verifique siempre la versión vigente en 🔗 [curriculumnacional.cl](https://www.curriculumnacional.cl/Curriculum/Bases_Curriculares).`
+  },
+  {
+    id: "doc-mbe", fuente: "DOC", titulo: "Marco para la Buena Enseñanza (MBE 2021)",
+    claves: ["marco para la buena ensenanza", "mbe", "estandares", "dominios", "estandares de la profesion docente", "evaluacion docente", "cpeip", "dominio a", "dominio b", "dominio c", "dominio d"],
+    texto: `Actualización del **CPEIP** (2021) que define la buena docencia en **4 dominios y 12 estándares**:
+
+**A · Preparación del proceso de enseñanza y aprendizaje**
+1. Aprendizaje y desarrollo de los/as estudiantes · 2. Conocimiento disciplinar, didáctico y del currículum escolar · 3. Planificación de la enseñanza · 4. Planificación de la evaluación
+
+**B · Creación de un ambiente propicio para el aprendizaje**
+5. Ambiente respetuoso y organizado · 6. Desarrollo personal y social
+
+**C · Enseñanza para el aprendizaje de todos/as los/as estudiantes**
+7. Estrategias de enseñanza para el logro de aprendizajes profundos · 8. Estrategias para el desarrollo de habilidades del pensamiento · 9. Evaluación y retroalimentación para el aprendizaje
+
+**D · Responsabilidades profesionales**
+10. Ética profesional · 11. Aprendizaje profesional continuo · 12. Compromiso con el mejoramiento continuo de la comunidad escolar
+
+**Con IA:** apoya sobre todo los estándares 3, 4, 7, 8 y 9 (planificar, evaluar, diversificar, retroalimentar). La decisión pedagógica sigue siendo del docente.
+🔗 [MBE 2021 (PDF oficial)](https://estandaresdocentes.mineduc.cl/wp-content/uploads/2021/08/MBE-2.pdf)`
+  },
+  {
+    id: "doc-mbe-parvularia", fuente: "DOC", titulo: "Marco para la Buena Enseñanza de Educación Parvularia (2019)",
+    claves: ["parvularia", "educadora", "educadoras de parvulos", "jardin", "sala cuna", "nivel transicion", "mbe parvularia", "kinder", "prekinder", "parvulos"],
+    texto: `Referente de la **Subsecretaría de Educación Parvularia** (2019) "para una práctica pedagógica reflexiva y pertinente". Cuatro dominios con 16 criterios:
+
+**A · Preparación del proceso de enseñanza y aprendizaje:** domina los conocimientos disciplinares y pedagógicos del currículum vigente; considera las características y formas de aprender de todos los niños y niñas; planifica la enseñanza y la evaluación de acuerdo con ellas.
+
+**B · Creación de un ambiente propicio para el aprendizaje:** bienestar integral; ambientes físicos funcionales y seguros; organización del tiempo; cultura de aprendizaje desafiante y **lúdica**.
+
+**C · Enseñanza para el aprendizaje de todos los niños y las niñas:** lidera al equipo de aula; comunicación efectiva; interacciones pedagógicas para el desarrollo integral; decisiones oportunas a partir de la evaluación.
+
+**D · Compromiso y desarrollo profesional:** compromiso con los niños y niñas; colaboración con la comunidad educativa y local; reflexión crítica sobre políticas y sobre la propia práctica.
+
+**Con IA:** pida experiencias de aprendizaje **lúdicas**, con juego y materiales concretos, y verifique los OA en las Bases Curriculares de Educación Parvularia.
+🔗 [MBE Educación Parvularia (PDF oficial)](https://parvularia.mineduc.cl/wp-content/uploads/2020/05/19-10-30-MBE-EP-Final-para-web-largo-comprimido-1.pdf)`
+  },
+
+  /* ------------------- DIRECTIVOS ------------------- */
+  {
+    id: "dir-mbdle", fuente: "DIR", titulo: "Marco para la Buena Dirección y el Liderazgo Escolar (MBDLE 2015)",
+    claves: ["mbdle", "buena direccion", "liderazgo escolar", "directivo", "directivos", "director", "directora", "equipo directivo", "practicas directivas", "recursos personales", "utp", "lider"],
+    texto: `Referente del **CPEIP/MINEDUC** (2015) que orienta las prácticas y el desarrollo profesional de directores y equipos directivos.
+
+**Cinco dimensiones de prácticas:**
+1. Construyendo e implementando una **visión estratégica compartida**.
+2. Desarrollando las **capacidades profesionales**.
+3. Liderando los **procesos de enseñanza y aprendizaje**.
+4. Gestionando la **convivencia y la participación** de la comunidad escolar.
+5. Desarrollando y **gestionando el establecimiento** escolar.
+
+**Recursos personales:**
+- **Principios:** ética, confianza, justicia social e integridad.
+- **Habilidades:** visión estratégica, trabajar en equipo, comunicar de manera efectiva, capacidad de negociación, aprendizaje permanente, flexibilidad, empatía, sentido de autoeficacia y resiliencia.
+- **Conocimientos:** liderazgo escolar, inclusión y equidad, mejoramiento y cambio escolar, currículum, evaluación, prácticas de enseñanza-aprendizaje, desarrollo profesional, políticas y normativa educacional, y gestión de proyectos.
+
+**Con IA (Manual 2, tipos 1, 2, 5 y 6):** borradores de documentos, síntesis, análisis de datos agregados e interlocutor crítico. La deliberación y la decisión siguen siendo del equipo.
+🔗 [MBDLE 2015 (PDF)](https://liderazgoeducativo.mineduc.cl/wp-content/uploads/sites/55/2016/04/MBDLE_2015.pdf) · [Página oficial](https://liderazgoeducativo.mineduc.cl/marco-para-la-buena-direccion-y-el-liderazgo-escolar-2/)`
+  },
+  {
+    id: "dir-recursos", fuente: "DIR", titulo: "Recursos oficiales para equipos directivos (PME, estándares, normativa)",
+    claves: ["pme", "plan de mejoramiento", "estandares indicativos", "normativa vigente", "liderazgo educativo", "sep", "ciclo de mejora", "gestion", "datos pme", "aseguramiento de la calidad"],
+    texto: `En el sitio **Liderazgo Educativo del MINEDUC**:
+- **Orientaciones PME 2026** y **Herramientas del Plan de Mejoramiento Educativo**. 🔗 [Ver orientaciones](https://liderazgoeducativo.mineduc.cl/orientaciones-pme-2026-2/) · [Herramientas PME](https://liderazgoeducativo.mineduc.cl/herramientas-plan-de-mejoramiento-educativo/)
+- **Estándares Indicativos de Desempeño** para la autoevaluación institucional. 🔗 [Ver estándares](https://liderazgoeducativo.mineduc.cl/estandares-indicativos-de-desempeno/)
+- **Guía sobre normativa vigente para equipos directivos.** 🔗 [Ver guía](https://liderazgoeducativo.mineduc.cl/guia-sobre-normativa-vigente-para-equipos-directivos-de-establecimientos-educacionales/)
+- **Set de rúbricas para la reflexión y actualización de planes.** 🔗 [Ver rúbricas](https://liderazgoeducativo.mineduc.cl/set-de-rubricas-reflexion-y-actualizacion-de-planes/)
+- **Centros de Liderazgo** con cursos para directivos. 🔗 [Ver centros](https://liderazgoeducativo.mineduc.cl/centros-de-liderazgo/)
+
+**Con IA:** úsela para estructurar el PME, redactar acciones e indicadores medibles y preparar preguntas de análisis sobre datos **agregados**. El diagnóstico, la priorización y la asignación de recursos se definen con la comunidad (Manual 2, tabla 17).`
+  },
+
+  /* ------------------- ASISTENTES Y CONVIVENCIA ------------------- */
+  {
+    id: "asi-rol", fuente: "ASI", titulo: "Asistentes de la educación: rol en la comunidad educativa",
+    claves: ["asistente", "asistentes", "asistentes de la educacion", "paradocente", "inspector", "auxiliar", "administrativo", "rol asistente", "comunidad educativa"],
+    texto: `Las y los asistentes de la educación, **cualquiera sea su función**, forman parte de la comunidad educativa y contribuyen al desarrollo del **Proyecto Educativo Institucional** (MINEDUC, *Asistentes de la Educación en la Reforma Educativa*).
+
+Ese material de apoyo aborda: participación en la comunidad educativa, el PEI, la normativa escolar, el Consejo Escolar, comunicación y asertividad, resolución alternativa de conflictos, prevención del consumo de drogas, seguridad escolar y autocuidado, y detección y abordaje del abuso sexual infantil.
+
+**Con IA, ideas útiles y seguras:**
+- Material informativo para familias en lenguaje claro.
+- Diseño de talleres o recreos con actividades de convivencia.
+- Pautas de registro **sin datos personales**.
+- Simplificar protocolos para difundirlos.
+
+⛔ Nunca ingrese datos de estudiantes ni relatos de casos: la intervención en situaciones de vulneración **no se delega en IA** (Manual 2).
+🔗 [Documento MINEDUC (PDF)](https://www.comunidadescolar.cl/wp-content/uploads/2019/07/AsistentesparaLaeducacion.pdf)`
+  },
+  {
+    id: "asi-pie", fuente: "ASI", titulo: "Profesionales asistentes de la educación en el PIE",
+    claves: ["pie", "programa de integracion", "integracion escolar", "psicologo", "fonoaudiologo", "kinesiologo", "psicopedagogo", "terapeuta ocupacional", "nee", "necesidades educativas especiales", "educacion especial", "decreto 170"],
+    texto: `Orientaciones del MINEDUC (Unidad de Educación Especial, 2019) sobre el rol de los **profesionales asistentes de la educación en los Programas de Integración Escolar (PIE)**, en el marco de una educación inclusiva.
+
+**Tres roles:**
+- **Evaluador:** toma de decisiones con foco en la mejora y el ajuste de los procesos educativos.
+- **De apoyo:** apoyos a estudiantes, docentes y familias.
+- **Colaborador:** trabajo colaborativo con el equipo PIE y los docentes de aula regular.
+
+**Ámbitos por profesión (ejemplos):** fonoaudiólogo/a → lenguaje y comunicación; kinesiólogo/a → corporalidad, movimiento y psicomotricidad; psicopedagogo/a → dificultades individuales de aprendizaje; psicólogo/a → desarrollo cognitivo y emocional.
+
+**Con IA:** úsela para material de apoyo **general**, como adaptar textos, crear apoyos visuales o diseñar actividades de lenguaje o psicomotricidad. Los informes PIE son **datos sensibles de salud**: nunca entran a plataformas de IA de uso público (Manual 2, apartado 2.10).
+🔗 [Orientaciones PIE (PDF)](https://especial.mineduc.cl/wp-content/uploads/sites/31/2020/01/Profesionales-asistentes-de-la-educacion-002.pdf)`
+  },
+  {
+    id: "asi-convivencia", fuente: "ASI", titulo: "Convivencia educativa: recursos oficiales del MINEDUC",
+    claves: ["convivencia", "convivencia escolar", "convivencia educativa", "pnce", "politica nacional de convivencia", "reglamento interno", "protocolo", "bienestar", "salud mental", "buen trato", "bullying", "acoso", "ciberacoso", "conflictos", "21809", "encargado de convivencia"],
+    texto: `El portal **Cultura Educativa** del MINEDUC reúne los recursos de la **Política Nacional de Convivencia Educativa (PNCE)**:
+- **Orientaciones para implementar la Ley N.º 21.809** (2026), sobre convivencia educativa, buen trato y bienestar. 🔗 [PDF](https://culturaeducativa.mineduc.gob.cl/wp-content/uploads/2026/08/ORIENTACIONES-PARA-LA-IMPLEMENTACION-DE-LA-LEY-21.809.pdf)
+- **Plan de gestión de convivencia educativa 2026**: planificación estratégica y participativa. 🔗 [PDF](https://culturaeducativa.mineduc.gob.cl/wp-content/uploads/2026/07/PLAN-DE-GESTION-DE-CONVIVENCIA-EDUCATIVA-2026.pdf)
+- **Orientaciones para la jornada de reglamentos internos 2026.** 🔗 [PDF](https://culturaeducativa.mineduc.gob.cl/wp-content/uploads/2026/04/ORIENTACIONES-REGLAMENTOS-INTERNOS-2026.pdf)
+- **Herramientas metodológicas para la pedagogización de la convivencia** (2026). 🔗 [PDF](https://culturaeducativa.mineduc.gob.cl/wp-content/uploads/2026/03/02.-Herramientas-Metodologicas-para-la-Pedagogizacion-de-la-Convivencia-.pdf)
+- **Decálogo para la gestión colaborativa de conflictos** (Superintendencia de Educación). 🔗 [PDF](https://culturaeducativa.mineduc.gob.cl/wp-content/uploads/2023/12/Triptico_decalogo_GCC.pdf)
+- **Aprendizaje socioemocional** y sección de **bienestar y salud mental**. 🔗 [Ver recursos](https://culturaeducativa.mineduc.gob.cl/aprendizaje-socioemocional/)
+
+Según la PNCE, la convivencia **se aprende y se enseña** de manera intencionada y comunitaria, y es una responsabilidad compartida.
+
+**Con IA:** simplificar protocolos para familias, diseñar actividades formativas y preparar jornadas. ⛔ No delegue decisiones disciplinarias ni comunicaciones sensibles (Manual 2).
+🔗 [Todos los recursos de convivencia](https://culturaeducativa.mineduc.gob.cl/recursos-convivencia/)`
   }
 ];
 
 /* =====================================================================
    ASISTENTE DE PROMPTS (flujo guiado dentro del chat)
    ===================================================================== */
+/* Roles de quien usa el asistente. Cada rol ve tipos de material y
+   marcos de referencia distintos. */
+const ROLES = {
+  docente:   { nombre: "Docente o educador/a", corto: "Docente", emoji: "👩‍🏫", marco: "Bases Curriculares y Marco para la Buena Enseñanza" },
+  directivo: { nombre: "Directivo / equipo de gestión", corto: "Directivo", emoji: "🧭", marco: "Marco para la Buena Dirección y el Liderazgo Escolar" },
+  asistente: { nombre: "Asistente de la educación", corto: "Asistente de la educación", emoji: "🤝", marco: "orientaciones para asistentes de la educación y la Política Nacional de Convivencia Educativa" }
+};
+
+/* curricular: true → pregunta nivel, asignatura, tema y OA (Bases Curriculares).
+   curricular: false → pregunta propósito y destinatarios.
+   marco: referente oficial que se agrega al prompt (o función según nivel). */
 const TIPOS_MATERIAL = [
-  { id: "guia",        nombre: "Guía de trabajo",           rol: "docente con experiencia en diversificación de la enseñanza en el sistema escolar chileno", tarea: "diseña una guía de trabajo", formato: "título, objetivo en lenguaje para estudiantes, instrucciones paso a paso, 3 a 5 actividades de dificultad progresiva y una pregunta de cierre metacognitiva" },
-  { id: "rubrica",     nombre: "Rúbrica de evaluación",     rol: "jefe de UTP de un establecimiento de educación pública chileno con experiencia en evaluación formativa", tarea: "diseña una rúbrica analítica", formato: "tabla con cuatro criterios y tres niveles de logro (Logrado, En desarrollo, Por lograr), más una columna con sugerencia de retroalimentación para el nivel más bajo" },
-  { id: "prueba",      nombre: "Prueba / banco de ítems",   rol: "especialista en evaluación educativa del sistema escolar chileno", tarea: "genera 10 preguntas de selección múltiple de cuatro alternativas", formato: "cada pregunta con sus alternativas y, al lado, qué error conceptual frecuente representa cada distractor; alternativas de extensión similar y sin 'todas/ninguna de las anteriores'" },
-  { id: "clase",       nombre: "Planificación de clase",    rol: "docente experimentado del sistema escolar chileno", tarea: "diseña la secuencia de una clase de 90 minutos", formato: "inicio, desarrollo y cierre con tiempos, actividades, preguntas clave y evidencia de aprendizaje; al menos 60 % de trabajo activo de los estudiantes" },
-  { id: "diversificar",nombre: "Diversificar un material",  rol: "docente con experiencia en diversificación de la enseñanza (DUA) en el sistema escolar chileno", tarea: "genera tres versiones del material que pegaré al final", formato: "VERSIÓN A con mayor andamiaje (pasos desglosados, ejemplo resuelto, vocabulario clave); VERSIÓN B estándar; VERSIÓN C con mayor demanda cognitiva. Las tres evalúan el mismo aprendizaje y se ven similares entre sí" },
-  { id: "texto",       nombre: "Adaptar un texto",          rol: "docente especialista en comprensión lectora del sistema escolar chileno", tarea: "adapta la complejidad léxica del texto que pegaré al final", formato: "texto adaptado, glosario de 5 palabras clave y 4 preguntas de comprensión (literal, inferencial y crítica)" },
-  { id: "comunicado",  nombre: "Comunicado a familias",     rol: "especialista en comunicación institucional para comunidades escolares chilenas", tarea: "redacta un comunicado informativo", formato: "asunto, saludo, mensaje en frases cortas, qué deben hacer las familias, a quién dirigirse y despedida; máximo 200 palabras" },
-  { id: "infografia",  nombre: "Infografía / afiche",       rol: "diseñador instruccional del sistema escolar chileno", tarea: "propón el contenido y la estructura de una infografía", formato: "título atractivo, 4 a 6 bloques breves (máx. 25 palabras c/u), sugerencia de íconos o imágenes y una llamada a la acción; texto listo para pegar en Canva" }
+  /* ---- Docentes ---- */
+  { id: "guia", roles: ["docente"], curricular: true, nombre: "Guía de trabajo", rol: "docente con experiencia en diversificación de la enseñanza en el sistema escolar chileno", tarea: "diseña una guía de trabajo", formato: "título, objetivo en lenguaje para estudiantes, instrucciones paso a paso, 3 a 5 actividades de dificultad progresiva y una pregunta de cierre metacognitiva", estandares: "3 (planificación de la enseñanza) y 7 (estrategias para aprendizajes profundos)" },
+  { id: "clase", roles: ["docente"], curricular: true, nombre: "Planificación de clase", rol: "docente experimentado del sistema escolar chileno", tarea: "diseña la secuencia de una clase de 90 minutos", formato: "inicio, desarrollo y cierre con tiempos, actividades, preguntas clave y evidencia de aprendizaje; al menos 60 % de trabajo activo de los estudiantes", estandares: "3 (planificación de la enseñanza), 7 y 8 (estrategias de enseñanza y habilidades del pensamiento)" },
+  { id: "rubrica", roles: ["docente", "directivo"], curricular: true, nombre: "Rúbrica de evaluación", rol: "jefe de UTP de un establecimiento de educación pública chileno con experiencia en evaluación formativa", tarea: "diseña una rúbrica analítica", formato: "tabla con cuatro criterios y tres niveles de logro (Logrado, En desarrollo, Por lograr), más una columna con sugerencia de retroalimentación para el nivel más bajo", estandares: "4 (planificación de la evaluación) y 9 (evaluación y retroalimentación para el aprendizaje)" },
+  { id: "prueba", roles: ["docente"], curricular: true, nombre: "Prueba / banco de ítems", rol: "especialista en evaluación educativa del sistema escolar chileno", tarea: "genera 10 preguntas de selección múltiple de cuatro alternativas", formato: "cada pregunta con sus alternativas y, al lado, qué error conceptual frecuente representa cada distractor; alternativas de extensión similar y sin 'todas/ninguna de las anteriores'", estandares: "4 (planificación de la evaluación) y 9 (evaluación y retroalimentación)" },
+  { id: "diversificar", roles: ["docente"], curricular: true, nombre: "Diversificar un material", rol: "docente con experiencia en diversificación de la enseñanza (DUA) en el sistema escolar chileno", tarea: "genera tres versiones del material que pegaré al final", formato: "VERSIÓN A con mayor andamiaje (pasos desglosados, ejemplo resuelto, vocabulario clave); VERSIÓN B estándar; VERSIÓN C con mayor demanda cognitiva. Las tres evalúan el mismo aprendizaje y se ven similares entre sí", estandares: "1 (aprendizaje y desarrollo de los estudiantes) y 7 (estrategias para aprendizajes profundos)", pegar: true },
+  { id: "texto", roles: ["docente", "asistente"], curricular: true, nombre: "Adaptar un texto", rol: "docente especialista en comprensión lectora del sistema escolar chileno", tarea: "adapta la complejidad léxica del texto que pegaré al final", formato: "texto adaptado, glosario de 5 palabras clave y 4 preguntas de comprensión (literal, inferencial y crítica)", estandares: "1 (aprendizaje y desarrollo de los estudiantes) y 7", pegar: true },
+  { id: "infografia", roles: ["docente"], curricular: true, nombre: "Infografía para el aula", rol: "diseñador instruccional del sistema escolar chileno", tarea: "propón el contenido y la estructura de una infografía didáctica", formato: "título atractivo, 4 a 6 bloques breves (máx. 25 palabras c/u), sugerencia de íconos o imágenes y una pregunta para los estudiantes; texto listo para pegar en Canva", estandares: "7 (estrategias para aprendizajes profundos)" },
+
+  /* ---- Directivos ---- */
+  { id: "agenda", roles: ["directivo"], curricular: false, nombre: "Reunión o jornada de reflexión", rol: "asesor en desarrollo profesional docente del sistema escolar chileno", tarea: "diseña la agenda de una reunión o jornada de reflexión pedagógica", formato: "para cada momento: objetivo, tiempo, modalidad de trabajo, preguntas orientadoras concretas y producto esperado; al menos 40 % del tiempo para deliberación y un cierre con acuerdos, responsables y plazos", marco: "Marco para la Buena Dirección y el Liderazgo Escolar, dimensión «Desarrollando las capacidades profesionales»" },
+  { id: "critico", roles: ["directivo"], curricular: false, nombre: "Análisis crítico de una medida", rol: "asesor crítico en gestión escolar con experiencia en establecimientos de educación pública chilenos", tarea: "analiza críticamente la medida que describo en el contexto, sin darme una opinión favorable", formato: "(1) tres supuestos no verificados; (2) condiciones institucionales necesarias; (3) tres formas probables de fracaso; (4) cinco preguntas antes de presentarla al Consejo de Profesores", marco: "Marco para la Buena Dirección y el Liderazgo Escolar, dimensión «Construyendo e implementando una visión estratégica compartida»" },
+  { id: "pme", roles: ["directivo"], curricular: false, nombre: "Acciones e indicadores del PME", rol: "asesor en gestión escolar para el sistema educativo chileno con experiencia en Planes de Mejoramiento Educativo", tarea: "redacta acciones de mejora e indicadores medibles para el objetivo que indico", formato: "tabla con acción, descripción, responsable (cargo), plazo, medio de verificación e indicador medible; deja como [PENDIENTE] los datos y montos que no conozcas", marco: "Marco para la Buena Dirección y el Liderazgo Escolar («Desarrollando y gestionando el establecimiento escolar») y Estándares Indicativos de Desempeño" },
+  { id: "acompanamiento", roles: ["directivo"], curricular: false, nombre: "Pauta de acompañamiento al aula", rol: "jefe de UTP de un establecimiento de educación pública chileno con experiencia en acompañamiento docente", tarea: "diseña una pauta de observación y retroalimentación de clases", formato: "tabla con indicadores observables (sin juicios de valor), espacio para evidencias, preguntas para la conversación de retroalimentación y acuerdos de mejora", marco: "Marco para la Buena Dirección y el Liderazgo Escolar («Liderando los procesos de enseñanza y aprendizaje») y Marco para la Buena Enseñanza 2021" },
+  { id: "informe", roles: ["directivo"], curricular: false, nombre: "Estructura de informe de gestión", rol: "asesor en gestión escolar para el sistema educativo chileno", tarea: "propón la estructura de un informe de gestión", formato: "índice con secciones; para cada sección, qué información incluir y de qué fuente institucional obtenerla; deja los datos como campos por completar, sin inventar cifras", marco: "Marco para la Buena Dirección y el Liderazgo Escolar («Desarrollando y gestionando el establecimiento escolar»)" },
+
+  /* ---- Asistentes de la educación ---- */
+  { id: "taller", roles: ["asistente", "directivo"], curricular: false, nombre: "Taller o actividad de convivencia", rol: "especialista en convivencia educativa del sistema escolar chileno", tarea: "diseña un taller o actividad formativa de convivencia", formato: "objetivo, duración, materiales, inicio, desarrollo y cierre con instrucciones paso a paso, preguntas de reflexión y una forma sencilla de evaluar la actividad", marco: "Política Nacional de Convivencia Educativa: la convivencia se aprende y se enseña de manera intencionada y comunitaria" },
+  { id: "familias", roles: ["asistente", "directivo", "docente"], curricular: false, nombre: "Material informativo para familias", rol: "especialista en comunicación con familias de comunidades escolares chilenas", tarea: "elabora un material informativo breve para familias", formato: "título claro, 4 a 6 ideas clave en frases cortas, qué pueden hacer en casa, a quién dirigirse en el establecimiento y un cierre cercano; listo para imprimir o compartir", marco: "orientaciones del MINEDUC para la participación y colaboración con familias" },
+  { id: "protocolo", roles: ["asistente", "directivo"], curricular: false, nombre: "Simplificar un protocolo", rol: "especialista en comunicación institucional para comunidades escolares chilenas", tarea: "elabora una versión informativa para familias del protocolo que pegaré al final", formato: "qué situaciones cubre, pasos en orden con plazos, a quién dirigirse en cada etapa; frases cortas y sin lenguaje jurídico. No modifiques plazos, responsables ni procedimientos: si algo no está claro, márcalo como [REVISAR]", marco: "Reglamento Interno del establecimiento y orientaciones de convivencia del MINEDUC", pegar: true },
+  { id: "apoyo", roles: ["asistente"], curricular: false, nombre: "Material de apoyo (PIE / aula)", rol: "profesional asistente de la educación con experiencia en Programas de Integración Escolar", tarea: "diseña un material de apoyo general para el aula", formato: "propósito, materiales, instrucciones paso a paso con apoyos visuales sugeridos y variantes para distintos ritmos; sin referencias a diagnósticos ni a estudiantes específicos", marco: "Orientaciones MINEDUC sobre el rol de los profesionales asistentes de la educación en el PIE (roles de apoyo y colaborador)" },
+
+  /* ---- Todos ---- */
+  { id: "comunicado", roles: ["docente", "directivo", "asistente"], curricular: false, nombre: "Comunicado a familias", rol: "especialista en comunicación institucional para comunidades escolares chilenas", tarea: "redacta un comunicado informativo", formato: "asunto, saludo, mensaje en frases cortas, qué deben hacer las familias, a quién dirigirse y despedida; máximo 200 palabras", marco: "Marco para la Buena Dirección y el Liderazgo Escolar («Gestionando la convivencia y la participación de la comunidad escolar»)" }
 ];
 
-const NIVELES = ["Educación Parvularia", "1° a 4° básico", "5° a 8° básico", "1° a 2° medio", "3° a 4° medio", "Técnico-Profesional", "Educación de adultos"];
+/* Niveles alineados con las Bases Curriculares vigentes */
+const NIVELES = [
+  { nombre: "Educación Parvularia", bases: "Bases Curriculares de Educación Parvularia", parvularia: true },
+  { nombre: "1° a 6° básico", bases: "Bases Curriculares de 1° a 6° básico" },
+  { nombre: "7° básico a 2° medio", bases: "Bases Curriculares de 7° básico a 2° medio" },
+  { nombre: "3° y 4° medio", bases: "Bases Curriculares de 3° y 4° medio" },
+  { nombre: "3° y 4° medio Técnico-Profesional", bases: "Bases Curriculares de la Formación Diferenciada Técnico-Profesional" },
+  { nombre: "Educación de personas jóvenes y adultas", bases: "Bases Curriculares para la Educación de Personas Jóvenes y Adultas 2024" }
+];
+
+const ASIGNATURAS = {
+  "Educación Parvularia": ["Identidad y Autonomía", "Convivencia y Ciudadanía", "Corporalidad y Movimiento", "Lenguaje Verbal", "Lenguajes Artísticos", "Exploración del Entorno Natural", "Comprensión del Entorno Sociocultural", "Pensamiento Matemático"],
+  "1° a 6° básico": ["Lenguaje y Comunicación", "Matemática", "Ciencias Naturales", "Historia, Geografía y Cs. Sociales", "Inglés", "Artes Visuales", "Música", "Educación Física y Salud", "Tecnología", "Orientación"],
+  "7° básico a 2° medio": ["Lengua y Literatura", "Matemática", "Ciencias Naturales", "Historia, Geografía y Cs. Sociales", "Inglés", "Artes Visuales", "Música", "Educación Física y Salud", "Tecnología", "Orientación"],
+  "3° y 4° medio": ["Lengua y Literatura", "Matemática", "Educación Ciudadana", "Filosofía", "Inglés", "Ciencias para la Ciudadanía", "Historia (plan común electivo)", "Educación Física y Salud", "Artes"],
+  "3° y 4° medio Técnico-Profesional": [],
+  "Educación de personas jóvenes y adultas": []
+};
+
+const DESTINATARIOS = ["Docentes", "Familias y apoderados", "Estudiantes", "Equipo directivo", "Asistentes de la educación", "Consejo Escolar"];
 
 /* Referencias locales SUGERIDAS para contextualizar material por comuna.
    Son puntos de partida: cada docente puede reemplazarlas por las del
