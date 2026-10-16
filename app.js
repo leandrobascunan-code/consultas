@@ -52,6 +52,7 @@
   /* Markdown mínimo y seguro (se escapa todo antes de dar formato) */
   function enLinea(t) {
     return t
+      .replace(/!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">🖼️ $1</a>')   // imagen dentro de un párrafo: enlace
       .replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
       .replace(/`([^`]+)`/g, "<code>$1</code>")
       .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
@@ -66,13 +67,26 @@
     const cerrarLista = () => { if (lista) { html += `</${lista}>`; lista = null; } };
     while (i < lineas.length) {
       const l = lineas[i];
-      if (/^```/.test(l.trim())) {               // bloque de código / prompt
+      if (/^```/.test(l.trim())) {               // bloque de código / prompt / gráfico
         cerrarLista();
+        const lenguaje = (l.trim().match(/^```\s*([a-záéíóú]+)/i) || [])[1] || "";
         const buf = []; i++;
         while (i < lineas.length && !/^```/.test(lineas[i].trim())) buf.push(lineas[i++]);
         i++;
+        if (/^(grafico|gráfico|chart|grafica)$/i.test(lenguaje)) {   // datos → gráfico animado
+          const g = graficoDesdeTexto(buf.join("\n"));
+          if (g) { html += g; continue; }
+        }
         html += `<div class="bloque-codigo"><button class="btn-copiar" type="button">Copiar</button><pre>${buf.join("\n")}</pre></div>`;
         continue;
+      }
+      // Imagen sola en una línea: ![descripción](https://...) — si no carga, se oculta
+      const img = l.trim().match(/^!\[([^\]]*)\]\((https:\/\/[^)\s]+)\)$/);
+      if (img) {
+        cerrarLista();
+        html += `<figure class="img-resp"><img src="${img[2]}" alt="${img[1]}" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('figure').remove()">` +
+          (img[1] ? `<figcaption>${img[1]}</figcaption>` : "") + `</figure>`;
+        i++; continue;
       }
       if (/^\|.*\|\s*$/.test(l.trim())) {         // tabla
         cerrarLista();
@@ -99,6 +113,207 @@
     }
     cerrarLista();
     return html;
+  }
+
+  /* ================================================================
+     1b. RECURSOS VISUALES: gráficos animados, videos de YouTube e imágenes
+     Gráficos dibujados aquí mismo en SVG (sin librerías externas), con los
+     colores del SLEP. Se animan cuando aparecen en pantalla.
+     ================================================================ */
+  const PALETA = ["#0071ea", "#4fa61a", "#f0a500", "#ff3c4c", "#22a9dc", "#9b59d0", "#e0559b", "#0b8f6a"];
+  const desescapar = (t) => String(t).replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+  function aNumero(v) {
+    if (typeof v === "number") return isFinite(v) ? v : null;
+    let s = String(v == null ? "" : v).replace(/[%\s$]/g, "");
+    if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, "").replace(",", ".");   // 1.234,5
+    else s = s.replace(",", ".");
+    const x = parseFloat(s);
+    return isFinite(x) ? x : null;
+  }
+  const fmtNum = (n, u) => n.toLocaleString("es-CL", { maximumFractionDigits: Math.abs(n) < 10 && n % 1 ? 2 : 1 }) + (u ? (u === "%" ? "%" : " " + u) : "");
+  const corto = (t, n) => (String(t).length > n ? String(t).slice(0, n - 1) + "…" : String(t));
+  const numAnim = (v, u, extra = "") => `<tspan class="g-num" data-v="${v}" data-u="${escapar(u || "")}"${extra}>${fmtNum(v, u)}</tspan>`;
+
+  function graficoDesdeTexto(txt) {
+    try { return graficoHTML(JSON.parse(desescapar(txt))); } catch (e) { console.warn("Gráfico no válido:", e.message); return ""; }
+  }
+  // spec: { tipo, titulo, etiquetas, series:[{nombre, datos}], unidad, fuente }  ·  tipo "cifras": { cifras:[{etiqueta, valor, unidad}] }
+  function graficoHTML(spec) {
+    if (!spec || typeof spec !== "object") return "";
+    const u = spec.unidad || "";
+    let tipo = String(spec.tipo || "barras").toLowerCase().replace("gráfico de ", "").replace(/\s+/g, "-");
+    tipo = { bar: "barras", barra: "barras", columnas: "barras", horizontal: "barras-h", line: "lineas", linea: "lineas", líneas: "lineas", pie: "torta",
+      circular: "torta", donut: "dona", indicadores: "cifras", kpi: "cifras" }[tipo] || tipo;
+    let cuerpo = "", leyenda = "", tabla = "";
+    const movil = (window.innerWidth || 800) < 600;   // en celular el dibujo es más angosto para que el texto se lea bien
+    if (tipo === "cifras") {
+      const cs = (spec.cifras || []).map((c) => ({ e: c.etiqueta || c.nombre || "", v: aNumero(c.valor), u: c.unidad || u })).filter((c) => c.v !== null).slice(0, 6);
+      if (!cs.length) return "";
+      cuerpo = `<div class="g-cifras">${cs.map((c, i) => `<div class="g-cifra" style="--c:${PALETA[i % PALETA.length]};--d:${i * 120}ms">` +
+        `<strong><span class="g-num" data-v="${c.v}" data-u="${escapar(c.u)}">${fmtNum(c.v, c.u)}</span></strong><span>${escapar(c.e)}</span></div>`).join("")}</div>`;
+      tabla = `<table><tr><th>Indicador</th><th>Valor</th></tr>${cs.map((c) => `<tr><td>${escapar(c.e)}</td><td>${fmtNum(c.v, c.u)}</td></tr>`).join("")}</table>`;
+    } else {
+      const et = (spec.etiquetas || []).slice(0, 30).map(String);
+      const series = (spec.series || (spec.datos ? [{ nombre: spec.titulo || "", datos: spec.datos }] : []))
+        .slice(0, 5).map((s, k) => ({ n: s.nombre || "", c: s.color || PALETA[k % PALETA.length], d: et.map((_, i) => aNumero((s.datos || [])[i])) }));
+      if (!et.length || !series.length || series.every((s) => s.d.every((x) => x === null))) return "";
+      tabla = `<table><tr><th></th>${series.map((s) => `<th>${escapar(s.n || "Valor")}</th>`).join("")}</tr>` +
+        et.map((e, i) => `<tr><td>${escapar(e)}</td>${series.map((s) => `<td>${s.d[i] === null ? "—" : fmtNum(s.d[i], u)}</td>`).join("")}</tr>`).join("") + `</table>`;
+      if (series.length > 1 || tipo === "lineas") leyenda = `<div class="g-leyenda">${series.map((s) => `<span><i style="background:${s.c}"></i>${escapar(s.n)}</span>`).join("")}</div>`;
+      if ((tipo === "barras" || tipo === "barras-h") && (et.length > 8 || et.reduce((a, e) => a + e.length, 0) / et.length > 13)) tipo = "barras-h";
+      const vals = series.flatMap((s) => s.d).filter((x) => x !== null);
+      // Escala con pasos "redondos" (0, 25, 50, 75, 100…) para que el eje se lea fácil
+      const redondo = (x) => { const p = Math.pow(10, Math.floor(Math.log10(x))), f = x / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; };
+      const pasoEje = redondo((Math.max(0, ...vals) - Math.min(0, ...vals)) / 4 || 1);
+      const max = Math.ceil(Math.max(0, ...vals) / pasoEje) * pasoEje || pasoEje, min = Math.floor(Math.min(0, ...vals) / pasoEje) * pasoEje, rango = max - min || 1;
+
+      if (tipo === "torta" || tipo === "dona") {
+        const s = series[0], total = s.d.reduce((a, x) => a + (x > 0 ? x : 0), 0) || 1;
+        let acum = 0;
+        const dona = tipo === "dona", r = dona ? 70 : 45, ancho = dona ? 32 : 90;
+        const segs = et.map((e, i) => {
+          const v = s.d[i] > 0 ? s.d[i] : 0, pct = (v / total) * 100;
+          const seg = `<circle class="g-seg" cx="100" cy="100" r="${r}" pathLength="100" fill="none" stroke="${PALETA[i % PALETA.length]}" stroke-width="${ancho}"
+            stroke-dasharray="0 100" stroke-dashoffset="${-acum}" data-pct="${pct}" style="--d:${i * 140}ms"><title>${escapar(e)}: ${fmtNum(v, u)} (${fmtNum(pct, "%")})</title></circle>`;
+          acum += pct; return seg;
+        }).join("");
+        cuerpo = `<div class="g-circular"><svg viewBox="0 0 200 200" class="g-svg-circ" role="img" aria-label="${escapar(spec.titulo || "Gráfico")}"><g transform="rotate(-90 100 100)">${segs}</g>` +
+          (dona ? `<text x="100" y="96" text-anchor="middle" class="g-centro">${numAnim(total, u)}</text><text x="100" y="116" text-anchor="middle" class="g-centro-sub">Total</text>` : "") + `</svg>` +
+          `<div class="g-leyenda g-leyenda-v">${et.map((e, i) => { const v = s.d[i] > 0 ? s.d[i] : 0;
+            return `<span><i style="background:${PALETA[i % PALETA.length]}"></i>${escapar(e)} <b>${fmtNum((v / total) * 100, "%")}</b></span>`; }).join("")}</div></div>`;
+        leyenda = "";
+      } else if (tipo === "barras-h") {
+        const W = movil ? 360 : 640, fila = 30, izq = movil ? 128 : 210, der = movil ? 52 : 70, H = et.length * fila * Math.max(1, series.length * 0.75) + 16, alto = (H - 16) / et.length;
+        const x = (v) => izq + ((v - min) / rango) * (W - izq - der), bw = (alto * 0.72) / series.length;
+        let svg = "";
+        et.forEach((e, i) => {
+          const y0 = 8 + i * alto;
+          svg += `<text x="${izq - 8}" y="${y0 + alto / 2 + 4}" text-anchor="end" class="g-et">${escapar(corto(e, movil ? 19 : 32))}<title>${escapar(e)}</title></text>`;
+          series.forEach((s, k) => {
+            const v = s.d[i]; if (v === null) return;
+            const y = y0 + alto * 0.14 + k * bw, xa = x(Math.min(0, v)), w = Math.abs(x(v) - x(0));
+            svg += `<rect class="g-barra g-barra-h" x="${xa}" y="${y}" width="${Math.max(w, 1)}" height="${bw - 2}" rx="4" fill="${s.c}" style="--d:${(i * series.length + k) * 45}ms;transform-origin:${v < 0 ? "right" : "left"} center"><title>${escapar(e)}: ${fmtNum(v, u)}</title></rect>` +
+              `<text x="${x(v) + (v < 0 ? -6 : 6)}" y="${y + bw / 2 + 2}" text-anchor="${v < 0 ? "end" : "start"}" class="g-val">${numAnim(v, u)}</text>`;
+          });
+        });
+        cuerpo = `<svg viewBox="0 0 ${W} ${H}" class="g-svg" role="img" aria-label="${escapar(spec.titulo || "Gráfico")}">${svg}</svg>`;
+      } else {
+        // barras verticales o líneas
+        const W = movil ? 360 : 640, H = movil ? 270 : 300, izq = movil ? 44 : 52, der = 10, arr = 18, rotar = et.length > (movil ? 4 : 6), abajo = rotar ? 74 : 40, pw = W - izq - der, ph = H - arr - abajo;
+        const y = (v) => arr + ph - ((v - min) / rango) * ph, paso = pw / et.length;
+        let svg = "";
+        for (let v = min; v <= max + pasoEje / 1000; v += pasoEje) {   // líneas guía en pasos redondos
+          const yy = y(v);
+          svg += `<line x1="${izq}" x2="${W - der}" y1="${yy}" y2="${yy}" class="g-guia"/><text x="${izq - 6}" y="${yy + 4}" text-anchor="end" class="g-eje">${fmtNum(+v.toFixed(2), u)}</text>`;
+        }
+        et.forEach((e, i) => {
+          const cx = izq + paso * (i + 0.5);
+          svg += rotar ? `<text transform="translate(${cx},${H - abajo + 14}) rotate(-35)" text-anchor="end" class="g-et">${escapar(corto(e, movil ? 13 : 18))}<title>${escapar(e)}</title></text>`
+            : `<text x="${cx}" y="${H - abajo + 18}" text-anchor="middle" class="g-et">${escapar(corto(e, movil ? 11 : 16))}<title>${escapar(e)}</title></text>`;
+        });
+        if (tipo === "lineas") {
+          series.forEach((s, k) => {
+            const pts = et.map((_, i) => (s.d[i] === null ? null : [izq + paso * (i + 0.5), y(s.d[i])])).filter(Boolean);
+            if (!pts.length) return;
+            const d = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+            svg += `<path d="${d} L${pts[pts.length - 1][0]} ${y(Math.max(min, 0))} L${pts[0][0]} ${y(Math.max(min, 0))} Z" fill="${s.c}" class="g-area"/>` +
+              `<path d="${d}" pathLength="1" fill="none" stroke="${s.c}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="g-linea" style="--d:${k * 250}ms"/>`;
+            et.forEach((e, i) => { if (s.d[i] === null) return; const px = izq + paso * (i + 0.5), py = y(s.d[i]);
+              svg += `<circle cx="${px}" cy="${py}" r="5" fill="#fff" stroke="${s.c}" stroke-width="3" class="g-punto" style="--d:${600 + i * 90}ms"><title>${escapar(e)}: ${fmtNum(s.d[i], u)}</title></circle>` +
+                (series.length === 1 ? `<text x="${px}" y="${py - 11}" text-anchor="middle" class="g-val g-punto" style="--d:${600 + i * 90}ms">${numAnim(s.d[i], u)}</text>` : ""); });
+          });
+        } else {
+          const bw = (paso * 0.7) / series.length;
+          et.forEach((e, i) => series.forEach((s, k) => {
+            const v = s.d[i]; if (v === null) return;
+            const bx = izq + paso * i + paso * 0.15 + k * bw, top = y(Math.max(v, 0)), h = Math.abs(y(v) - y(0));
+            svg += `<rect class="g-barra" x="${bx}" y="${top}" width="${bw - 3}" height="${Math.max(h, 1)}" rx="5" fill="${s.c}" style="--d:${(i * series.length + k) * 55}ms;transform-origin:center ${v < 0 ? "top" : "bottom"}"><title>${escapar(e)}${s.n ? " · " + escapar(s.n) : ""}: ${fmtNum(v, u)}</title></rect>` +
+              (et.length * series.length <= (movil ? 8 : 16) && bw >= (movil ? 30 : 24) ? `<text x="${bx + (bw - 3) / 2}" y="${v < 0 ? y(v) + 14 : top - 6}" text-anchor="middle" class="g-val">${numAnim(v, u)}</text>` : "");
+          }));
+        }
+        svg += `<line x1="${izq}" x2="${W - der}" y1="${y(0)}" y2="${y(0)}" class="g-base"/>`;
+        cuerpo = `<svg viewBox="0 0 ${W} ${H}" class="g-svg" role="img" aria-label="${escapar(spec.titulo || "Gráfico")}">${svg}</svg>`;
+      }
+    }
+    return `<figure class="grafico" data-tipo="${escapar(tipo)}">` +
+      (spec.titulo ? `<figcaption class="g-titulo"><span class="ico-sec" style="--c:#0071ea"></span>${escapar(spec.titulo)}</figcaption>` : "") +
+      cuerpo + leyenda +
+      `<div class="g-pie">${spec.fuente ? `<span class="g-fuente">Fuente: ${escapar(spec.fuente)}</span>` : `<span class="g-fuente">Fuente no indicada: verifica los datos.</span>`}` +
+      `<button class="g-ver-datos" type="button">Ver datos</button></div><div class="g-tabla" hidden>${tabla}</div></figure>`;
+  }
+
+  // Cuenta hacia arriba los números de un gráfico
+  function contar(elemento) {
+    const v = +elemento.dataset.v, u = elemento.dataset.u, t0 = performance.now(), dur = 1100;
+    const paso = (t) => { const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      const dec = Number.isInteger(v) ? 0 : (Math.abs(v) < 10 ? 2 : 1);   // los enteros cuentan sin decimales
+      elemento.textContent = fmtNum(k < 1 ? +(v * e).toFixed(dec) : v, u); if (k < 1) requestAnimationFrame(paso); };
+    requestAnimationFrame(paso);
+  }
+  function animarGrafico(g) {
+    if (g.classList.contains("animado")) return;
+    g.classList.add("animado");
+    g.querySelectorAll(".g-num").forEach(contar);
+    g.querySelectorAll(".g-seg").forEach((s) => { setTimeout(() => { s.style.strokeDasharray = `${s.dataset.pct} ${100 - s.dataset.pct}`; }, 30); });
+  }
+  const observadorGraficos = "IntersectionObserver" in window
+    ? new IntersectionObserver((ents) => ents.forEach((en) => { if (en.isIntersecting) { animarGrafico(en.target); observadorGraficos.unobserve(en.target); } }), { threshold: 0.35 })
+    : null;
+
+  // Tabla con números → botón "Ver como gráfico"
+  function graficoDesdeTabla(tabla) {
+    const filas = [...tabla.querySelectorAll("tr")].map((tr) => [...tr.children].map((c) => c.textContent.trim()));
+    if (filas.length < 3) return null;
+    const cab = filas[0], datos = filas.slice(1);
+    const cols = cab.map((_, j) => j).filter((j) => j > 0 && datos.filter((f) => aNumero(f[j]) !== null).length >= Math.max(2, datos.length * 0.7)).slice(0, 4);
+    if (!cols.length) return null;
+    const pct = datos.some((f) => cols.some((j) => /%/.test(f[j] || "")));
+    return { tipo: "barras", titulo: cab[cols[0]] && cols.length === 1 ? cab[cols[0]] : "", etiquetas: datos.map((f) => f[0]),
+      series: cols.map((j) => ({ nombre: cab[j], datos: datos.map((f) => aNumero(f[j])) })), unidad: pct ? "%" : "", fuente: "datos de la tabla anterior" };
+  }
+
+  // Activa gráficos, videos y tablas de un mensaje recién agregado
+  function activarVisuales(nodo) {
+    nodo.querySelectorAll(".grafico").forEach((g) => { if (observadorGraficos) observadorGraficos.observe(g); else animarGrafico(g); });
+    nodo.querySelectorAll(".burbuja table").forEach((t) => {
+      if (t.closest(".grafico") || t.dataset.grafico) return;
+      const spec = graficoDesdeTabla(t); if (!spec) return;
+      t.dataset.grafico = "1";
+      const b = document.createElement("button");
+      b.type = "button"; b.className = "chip g-desde-tabla"; b.textContent = "📊 Ver como gráfico";
+      b.addEventListener("click", () => {
+        const div = document.createElement("div"); div.innerHTML = graficoHTML(spec);
+        const g = div.firstElementChild; b.replaceWith(g); animarGrafico(g); conectarGrafico(g);
+      });
+      (t.closest(".tabla-wrap") || t).after(b);
+    });
+    nodo.querySelectorAll(".grafico").forEach(conectarGrafico);
+    // Videos de YouTube: tarjeta con miniatura; si el video no existe, no se muestra
+    const vistos = new Set(), ultimoDe = new Map();   // ultimoDe: mantiene el orden si hay varios videos en una misma lista
+    nodo.querySelectorAll(".burbuja a[href]").forEach((a) => {
+      const m = a.getAttribute("href").match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/);
+      if (!m || vistos.has(m[1]) || vistos.size >= 3) return;
+      vistos.add(m[1]);
+      const id = m[1], titulo = a.textContent.replace(/^▶️?\s*/, "").trim();
+      const card = document.createElement("div");
+      card.className = "video-yt";
+      card.innerHTML = `<button type="button" class="yt-play" aria-label="Reproducir video: ${escapar(titulo)}"><img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy"><span class="yt-icono"></span></button>` +
+        `<div class="yt-pie">▶️ ${escapar(corto(titulo, 90))} · YouTube</div>`;
+      const im = card.querySelector("img");
+      im.addEventListener("load", () => { if (im.naturalWidth <= 120) card.remove(); });   // miniatura genérica = video inexistente
+      im.addEventListener("error", () => card.remove());
+      card.querySelector(".yt-play").addEventListener("click", () => {
+        card.querySelector(".yt-play").outerHTML = `<div class="yt-marco"><iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="${escapar(titulo)}" ` +
+          `allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+      });
+      const bloque = a.closest("li") ? a.closest("ul, ol") : a.closest("p, h4, div.nota") || a;
+      (ultimoDe.get(bloque) || bloque).after(card); ultimoDe.set(bloque, card);
+    });
+  }
+  function conectarGrafico(g) {
+    const b = g.querySelector(".g-ver-datos"); if (!b || b.dataset.ok) return;
+    b.dataset.ok = "1";
+    b.addEventListener("click", () => { const t = g.querySelector(".g-tabla"); t.hidden = !t.hidden; b.textContent = t.hidden ? "Ver datos" : "Ocultar datos"; });
   }
 
   /* Enlaces automáticos: cuando una respuesta nombra una ley, un decreto o un documento
@@ -364,6 +579,7 @@
     div.className = `msg ${rol}`;
     div.innerHTML = rol === "bot" ? `${AVATAR}<div class="burbuja">${html}</div>` : `<div class="burbuja">${html}</div>`;
     el.mensajes.appendChild(div);
+    if (rol === "bot") activarVisuales(div);   // gráficos animados, videos y "Ver como gráfico" en tablas
     if (enInicio && !el.mensajes.querySelector(".msg.user")) {
       el.chat.scrollTop = 0;   // al abrir, la portada se ve desde arriba; la persona baja a responder
     } else if (rol === "user" || alFinal) {
@@ -479,11 +695,21 @@
   const REGLA_SIN_PROMPTS = "Responde TÚ directamente con el contenido, la orientación o el material solicitado. " +
     "NO entregues prompts, plantillas de prompt ni instrucciones para usar en otra herramienta de IA, salvo que la persona lo pida explícitamente " +
     "(por ejemplo, si escribe la palabra «prompt»).";
-  const INSTRUCCION_ACLARAR = "\n\n### Cómo responder\n" + REGLA_SIN_PROMPTS + " Si la consulta es ambigua o le falta información clave para responder bien " +
+  // Formatos visuales que el chat sabe mostrar (gráficos animados, videos, imágenes)
+  const INSTRUCCION_VISUALES = "\n\n### Recursos visuales (opcional)\n" +
+    "- Si presentas datos estadísticos REALES (del CONTEXTO o de fuentes oficiales que encontraste, siempre con su fuente), agrégalos además como gráfico con un bloque de código de lenguaje grafico que contenga solo JSON, por ejemplo:\n" +
+    '```grafico\n{"tipo":"barras","titulo":"Matrícula por nivel 2025","etiquetas":["Parvularia","Básica","Media"],"series":[{"nombre":"Estudiantes","datos":[120,540,258]}],"unidad":"","fuente":"Plan Anual Local 2026"}\n```\n' +
+    "  Tipos: barras, barras-h (nombres largos o muchas categorías), lineas (evolución en el tiempo), torta o dona (partes de un total), " +
+    'cifras (1 a 4 indicadores destacados: {"tipo":"cifras","titulo":"…","cifras":[{"etiqueta":"Asistencia","valor":87.5,"unidad":"%"}],"fuente":"…"}). ' +
+    "NUNCA inventes ni estimes cifras para un gráfico: si no tienes datos reales con fuente, no hagas gráficos.\n" +
+    "- Puedes recomendar un video de YouTube solo si tienes su enlace exacto de un canal oficial o confiable (MINEDUC, CPEIP, Agencia de Calidad, UNESCO, universidades) " +
+    "o lo encontraste en la búsqueda: escríbelo como enlace [título del video](https://www.youtube.com/watch?v=ID). El chat lo mostrará para reproducirlo.\n" +
+    "- Puedes incluir una imagen en una línea propia con ![descripción](https://url-de-la-imagen) solo si la dirección es de una fuente oficial verificada. Si dudas, no la incluyas.";
+  const INSTRUCCION_ACLARAR = INSTRUCCION_VISUALES + "\n\n### Cómo responder\n" + REGLA_SIN_PROMPTS + " Si la consulta es ambigua o le falta información clave para responder bien " +
     "(por ejemplo nivel, asignatura, propósito, destinatarios o a qué establecimiento o tema se refiere), NO supongas ni inventes: " +
     "responde solo con 1 a 3 preguntas breves de aclaración, ofreciendo opciones concretas basadas en el contexto y en el rol de quien consulta. " +
     "Si la consulta es clara, responde directamente.";
-  const INSTRUCCION_MATERIAL = "\n\n### Cómo responder\nLa persona ya entregó todos los datos necesarios. Elabora DIRECTAMENTE el material completo, " +
+  const INSTRUCCION_MATERIAL = INSTRUCCION_VISUALES + "\n\n### Cómo responder\nLa persona ya entregó todos los datos necesarios. Elabora DIRECTAMENTE el material completo, " +
     "listo para usar, siguiendo la especificación. NO escribas un prompt ni expliques cómo pedírselo a otra IA. " +
     "Contextualiza con la realidad socioeconómica, comunitaria y natural indicada (no agregues referencias geográficas que no estén en la especificación). " +
     "Al final agrega una breve sección «Para revisar antes de usar» (2 a 4 puntos: alineación curricular, pertinencia, sesgos) y la declaración de uso de IA.";
@@ -501,11 +727,14 @@
   }
 
   async function respuestaIA(consulta, estMencionado) {
-    const contexto = buscar(consulta, 4).map((r) => `### ${r.ficha.titulo} (${FUENTES[r.ficha.fuente] || r.ficha.fuente})\n${r.ficha.texto}`).join("\n\n") + contextoPerfil() +
+    const fichas = buscar(consulta, 4).map((r) => `### ${r.ficha.titulo} (${FUENTES[r.ficha.fuente] || r.ficha.fuente})\n${r.ficha.texto}`).join("\n\n");
+    const resto = contextoPerfil() +
       (estMencionado ? `\n\n### Establecimiento mencionado en la consulta\n${estMencionado.nombre}` + (estMencionado.comuna ? ` (${estMencionado.comuna}` + (estMencionado.entorno ? `, ${estMencionado.entorno.toLowerCase()}` : "") + ")" : "") +
         (estMencionado.niveles ? `. Niveles: ${estMencionado.niveles}` : "") + (estMencionado.caracteristicas ? `. Características según el PAL: ${estMencionado.caracteristicas}` : "") +
         (estDePerfil(leerPerfil()) === estMencionado ? "" : contextoPEI(estMencionado)) : "") +
       INSTRUCCION_ACLARAR;
+    // El servidor acepta hasta 16.000 caracteres: se recortan las fichas para que las instrucciones (al final) nunca se pierdan
+    const contexto = fichas.slice(0, Math.max(2000, 15500 - resto.length)) + resto;
     const previos = historial.slice(-9, -1).map((m) => ({
       role: m.rol === "user" ? "user" : "assistant",
       content: (m.texto || m.html.replace(/<[^>]+>/g, " ")).slice(0, 2000)
@@ -1087,6 +1316,28 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       (est.caracteristicas ? `<br>${escapar(est.caracteristicas)}` : "") + `</div>`;
   }
 
+  /* Datos numéricos del PAL que vienen en las características de cada establecimiento */
+  function datosPAL(est) {
+    const t = String(est.caracteristicas || "");
+    const m = (re) => { const x = t.match(re); return x ? aNumero(x[1]) : null; };
+    return { matricula: m(/matr[ií]cula 2025:\s*([\d.]+)/i), cursos: m(/(\d+)\s+cursos/i), pie: m(/PIE \(aprox\.\s*(\d+)%\)/i),
+      variacion: m(/variaci[oó]n de matr[ií]cula[^:]*:\s*(-?[\d.,]+)\s*%/i), cambioAnual: m(/matr[ií]cula 2025:\s*[\d.]+\s*\(([-+]?\d+)/i) };
+  }
+  function graficoPAL(est) {
+    const d = datosPAL(est), cifras = [];
+    if (d.matricula !== null) cifras.push({ etiqueta: "Matrícula 2025", valor: d.matricula });
+    if (d.cursos !== null) cifras.push({ etiqueta: "Cursos", valor: d.cursos });
+    if (d.pie !== null) cifras.push({ etiqueta: "Estudiantes en PIE (aprox.)", valor: d.pie, unidad: "%" });
+    if (d.variacion !== null) cifras.push({ etiqueta: "Variación de matrícula 2020–2026 (proyectada)", valor: d.variacion, unidad: "%" });
+    return cifras.length ? graficoHTML({ tipo: "cifras", titulo: "Datos del establecimiento", cifras, fuente: "Plan Anual Local 2026, SLEP Andalién Sur" }) : "";
+  }
+  function graficoMatricula(lista, titulo) {
+    const con = lista.map((e) => ({ e, v: datosPAL(e).matricula })).filter((x) => x.v !== null).sort((a, b) => b.v - a.v);
+    if (con.length < 2) return "";
+    return graficoHTML({ tipo: "barras-h", titulo, etiquetas: con.map((x) => x.e.nombre), series: [{ nombre: "Matrícula 2025", datos: con.map((x) => x.v) }],
+      fuente: "Plan Anual Local 2026, SLEP Andalién Sur" });
+  }
+
   /* Tarjeta "Mi establecimiento" */
   function respuestaMiEstablecimiento() {
     const p = leerPerfil() || {};
@@ -1104,7 +1355,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       `<div class="pei-bloque"><strong>${ico} ${t}</strong><button class="btn-copiar" type="button">Copiar</button><p>${escapar(est[k])}</p></div>`).join("");
     return `<h3>🏫 ${escapar(est.nombre)}</h3>` +
       markdown([est.comuna ? `**Comuna:** ${est.comuna}` : "", est.entorno ? `**Entorno:** ${est.entorno}` : "", est.niveles ? `**Niveles:** ${est.niveles}` : "",
-        est.caracteristicas ? `\n${est.caracteristicas}` : ""].filter(Boolean).join("\n")) +
+        est.caracteristicas ? `\n${est.caracteristicas}` : ""].filter(Boolean).join("\n")) + graficoPAL(est) +
       (pei || est.pei ? `<h4 class="titulo-sec"><span class="ico-sec" style="--c:#4fa61a"></span>Proyecto Educativo Institucional (PEI)</h4>${pei}` +
         (est.pei ? `<p>📄 <a href="${escapar(est.pei)}" target="_blank" rel="noopener" class="ref-oficial">Ver el PEI completo</a></p>` : "") : "") +
       (enlaces ? markdown(`**Enlaces:**\n${enlaces}`) : "") +
@@ -1257,6 +1508,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
         .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
       agregar("bot", `<h3>🏫 ${escapar(filtro.charAt(0).toUpperCase() + filtro.slice(1))} en ${escapar(comuna)} (${lista.length})</h3>` +
         (lista.length ? `<ul>${lista.map((e) => `<li><strong>${escapar(e.nombre)}</strong>${e.niveles ? " — " + escapar(e.niveles) : ""}</li>`).join("")}</ul>` : "<p>No hay registros con ese criterio.</p>") +
+        graficoMatricula(lista, `Matrícula 2025 · ${comuna}`) +
         `<div class="nota">Fuente: Plan Anual Local 2026. ${ESTABLECIMIENTOS.some((e) => !e.comuna) ? "Algunos jardines infantiles aún no tienen comuna registrada." : ""}</div>` +
         chips([{ accion: "perfil-iniciar", valor: "x", etiqueta: "📍 Elegir mi establecimiento", primario: true }]));
       return;

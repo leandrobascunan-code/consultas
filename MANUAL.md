@@ -135,6 +135,14 @@ Si los documentos del asistente no responden la consulta, la IA puede buscar en 
 
 ---
 
+## 5d. Gráficos, videos e imágenes en las respuestas
+
+- **Gráficos animados** (SVG propio, sin librerías externas, colores SLEP): barras, barras horizontales, líneas, torta, dona y cifras destacadas. Se animan al aparecer en pantalla y tienen el botón «Ver datos». La IA los genera con un bloque ```grafico con JSON, **solo con datos reales y con su fuente**.
+- **Datos del PAL**: «Ver datos de mi establecimiento» muestra matrícula, cursos, % PIE y variación proyectada; «¿Qué colegios hay en [comuna]?» muestra la matrícula 2025 de cada establecimiento.
+- Toda **tabla con números** ofrece el botón «📊 Ver como gráfico».
+- **Videos de YouTube**: los enlaces a YouTube se muestran como tarjeta con miniatura que se reproduce en el chat (youtube-nocookie). Si el video no existe, la tarjeta no aparece.
+- **Imágenes**: `![descripción](https://…)` en una línea propia. Si la imagen no carga, se oculta.
+
 ## 6. Registro de cambios
 
 | Fecha | Cambio | Responsable |
