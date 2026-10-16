@@ -57,7 +57,10 @@
   }
   function markdown(md) {
     const lineas = escapar(md).split("\n");
-    let html = "", lista = null, i = 0;
+    let html = "", lista = null, i = 0, nTitulo = 0;
+    // Títulos (# a ######): sin los "#", con un ícono en los colores del SLEP
+    const COLORES_TITULO = ["#0071ea", "#4fa61a", "#f0a500", "#ff3c4c", "#22a9dc"];
+    const titulo = (t) => `<h4 class="titulo-sec"><span class="ico-sec" style="--c:${COLORES_TITULO[nTitulo++ % COLORES_TITULO.length]}"></span>${enLinea(t)}</h4>`;
     const cerrarLista = () => { if (lista) { html += `</${lista}>`; lista = null; } };
     while (i < lineas.length) {
       const l = lineas[i];
@@ -84,7 +87,7 @@
         continue;
       }
       let m;
-      if ((m = l.match(/^#{1,3}\s+(.*)/))) { cerrarLista(); html += `<h4>${enLinea(m[1])}</h4>`; }
+      if ((m = l.match(/^\s*#{1,6}\s*(.+?)\s*#*\s*$/))) { cerrarLista(); html += titulo(m[1].replace(/^\*\*(.*)\*\*$/, "$1")); }
       else if ((m = l.match(/^\s*[-•]\s+(.*)/))) { if (lista !== "ul") { cerrarLista(); html += "<ul>"; lista = "ul"; } html += `<li>${enLinea(m[1])}</li>`; }
       else if ((m = l.match(/^\s*\d+[.)]\s+(.*)/))) { if (lista !== "ol") { cerrarLista(); html += "<ol>"; lista = "ol"; } html += `<li>${enLinea(m[1])}</li>`; }
       else if (/^\s*[a-z]\)\s+/.test(l)) { cerrarLista(); html += `<p>${enLinea(l)}</p>`; }
@@ -526,7 +529,10 @@
     enInicio = true; el.sugerencias.hidden = true;
     wizard = { datos: {}, soloPerfil: true, inicio: true, n: 0 };
     agregar("bot", `<div class="robot-saludo">${ROBOT()}<div><h3>👋 ¡Hola! Soy el asistente de IA del SLEP Andalién Sur</h3>
-      <p>Antes de comenzar, cuéntame un poco de ti para responderte de forma pertinente. Solo lo usaré durante esta conversación.</p></div></div>`);
+      <p>Resuelvo dudas sobre el uso de la inteligencia artificial en tu trabajo educativo y te ayudo a <strong>diseñar material con IA</strong> de forma ética, segura y pertinente.</p>
+      <p>Antes de comenzar, cuéntame un poco de ti para responderte de forma pertinente. Solo lo usaré durante esta conversación.</p></div></div>
+      <div class="aviso-privacidad">🔒 <span><strong>Cuida los datos personales:</strong> no escribas nombres, RUT, correos, teléfonos, direcciones ni datos de salud
+      o situaciones personales de estudiantes, familias o funcionarios (Ley 21.719). Describe las situaciones en forma general.</span></div>`);
     preguntar("rol");
   }
 

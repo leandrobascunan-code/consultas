@@ -262,6 +262,14 @@ button { font: inherit; cursor: pointer; }
 .msg.bot .burbuja::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 3px; background: var(--arcoiris); opacity: .85; }
 .burbuja h3 { margin: 0 0 8px; font-size: 1.04rem; letter-spacing: -.01em; color: var(--azul); }
 .burbuja h4 { margin: 14px 0 6px; font-size: .95rem; }
+/* Títulos de las respuestas: ícono de color SLEP en vez de "#" */
+.burbuja h4.titulo-sec { display: flex; align-items: center; gap: 9px; margin: 16px 0 7px; font-size: .98rem; }
+.ico-sec { width: 20px; height: 20px; border-radius: 7px; flex-shrink: 0; position: relative;
+  background: linear-gradient(135deg, var(--c), color-mix(in srgb, var(--c) 55%, #fff)); box-shadow: 0 2px 6px color-mix(in srgb, var(--c) 40%, transparent); }
+.ico-sec::after { content: ""; position: absolute; inset: 6px 7px 6px 8px; background: #fff; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+/* Aviso de datos personales en el saludo inicial */
+.aviso-privacidad { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 11px 14px; border-radius: 14px;
+  background: var(--verde-suave); border-left: 5px solid #90d039; font-size: .88rem; line-height: 1.45; }
 .burbuja p { margin: 0 0 10px; }
 .burbuja p:last-child { margin-bottom: 0; }
 .burbuja ul, .burbuja ol { margin: 0 0 10px; padding-left: 22px; }
