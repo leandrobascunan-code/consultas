@@ -7,6 +7,8 @@
 (function () {
   "use strict";
 
+  // Copia intacta de establecimientos.js: el panel puede editar o eliminar colegios de esta base
+  const ESTABLECIMIENTOS_BASE = ESTABLECIMIENTOS.map((e) => Object.assign({}, e));
   const $ = (sel) => document.querySelector(sel);
   const el = {
     chat: $("#chat"), mensajes: $("#mensajes"), bienvenida: $("#bienvenida"), elaborado: $("#elaborado"),
@@ -268,7 +270,17 @@
   /* ================================================================
      5. RENDERIZADO DE MENSAJES
      ================================================================ */
-  const AVATAR = `<div class="avatar" aria-hidden="true"><img src="favicon-48.png" alt=""></div>`;
+  /* Robot asistente: cuerpo completo (saludo y "pensando") y cara (ícono de cada respuesta) */
+  const BOCA = `<svg class="r-boca" viewBox="0 0 40 20" aria-hidden="true"><path d="M4 5 Q20 19 36 5"/><ellipse cx="20" cy="9" rx="9" ry="6"/></svg>`;
+  const OJOS = `<span class="r-ojo izq"></span><span class="r-ojo der"></span>`;
+  const ROBOT = (clase = "") => `<div class="robot ${clase}" aria-hidden="true"><div class="r-cuerpo"><img class="r-base" src="robot.jpg" alt="">${OJOS}${BOCA}` +
+    `<img class="r-mano izq" src="robot-mano-izq.png" alt=""><img class="r-mano der" src="robot-mano-der.png" alt=""></div></div>`;
+  const AVATAR = `<div class="avatar robot-cara" aria-hidden="true"><img src="robot-cara.jpg" alt="">${OJOS}${BOCA}</div>`;
+  // Hace "hablar" al robot de un mensaje durante un rato (según el largo de la respuesta)
+  function hablar(nodo, ms) {
+    const r = nodo && (nodo.querySelector(".robot") || nodo.querySelector(".avatar")); if (!r) return;
+    r.classList.add("hablando"); clearTimeout(r._t); r._t = setTimeout(() => r.classList.remove("hablando"), ms);
+  }
   const COLORES = { PAL: "#f0a500", M1: "#0071ea", M2: "#ff3c4c", LEY: "#9b59d0", M3: "#4fa61a", M4: "#f0a500", M5: "#22a9dc", MINEDUC: "#0071ea", EXT: "#e0559b", DOC: "#0b8f6a", DIR: "#5b4bd1", ASI: "#d9622b", SLEP: "#0071ea" };
 
   function ocultarBienvenida() { el.bienvenida.hidden = true; el.elaborado.hidden = true; }
@@ -291,6 +303,7 @@
       el.chat.scrollTop = Math.max(0, top);
     }
     if (guardar) historial.push({ rol, html, texto });
+    if (rol === "bot" && guardar) hablar(div, Math.min(6000, 1400 + html.replace(/<[^>]+>/g, "").length * 12));
     return div;
   }
   function agregarUsuario(texto) { agregar("user", escapar(texto), { texto }); }
@@ -304,7 +317,8 @@
     return `<span class="fuente" style="--c:${COLORES[f.fuente] || "var(--azul)"}">📘 ${escapar(FUENTES[f.fuente] || f.fuente)}</span>`;
   }
   function mostrarEscribiendo() {
-    return agregar("bot", `<span class="escribiendo" aria-label="Escribiendo"><i></i><i></i><i></i></span>`, { guardar: false, alFinal: true });
+    return agregar("bot", `<div class="robot-pensando">${ROBOT("hablando")}<div><strong>Preparando tu respuesta…</strong>` +
+      `<span class="escribiendo" aria-label="Escribiendo"><i></i><i></i><i></i></span></div></div>`, { guardar: false, alFinal: true });
   }
 
   /* ================================================================
@@ -386,14 +400,18 @@
     const r = await fetch(CONFIG.API, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },   // evita preflight CORS (Manual 5, 7.2)
-      body: JSON.stringify({ accion: "consultar", pregunta: consulta, historial: previos, contexto })
+      // buscarWeb: si los documentos internos no bastan, la IA puede buscar en fuentes educativas confiables
+      body: JSON.stringify({ accion: "consultar", pregunta: consulta, historial: previos, contexto, buscarWeb: true })
     });
     const datos = await r.json();
     if (!datos.ok) throw new Error(datos.error || "Respuesta no válida");
     const fuentes = buscar(consulta, 3).map((x) => x.ficha);
+    const usoWeb = /fuentes externas sugeridas/i.test(datos.respuesta);
     return markdown(datos.respuesta) +
       (fuentes.length ? `<div class="pie-msg">${fuentes.slice(0, 2).map(etiquetaFuente).join("")}</div>` : "") +
-      `<div class="nota">Respuesta generada con IA a partir de los manuales y fuentes oficiales. Verifica datos y normativa antes de usarla.</div>`;
+      `<div class="nota">${usoWeb
+        ? "🌐 Esta respuesta incluye información buscada en internet porque no estaba en los documentos del asistente. Revisa las fuentes sugeridas antes de usarla."
+        : "Respuesta generada con IA a partir de los manuales y fuentes oficiales. Verifica datos y normativa antes de usarla."}</div>`;
   }
 
   /* ================================================================
@@ -441,8 +459,8 @@
     perfilSesion = null; mostrarPerfil(); construirSugerencias();
     enInicio = true; el.sugerencias.hidden = true;
     wizard = { datos: {}, soloPerfil: true, inicio: true, n: 0 };
-    agregar("bot", `<h3>👋 ¡Hola! Soy el asistente de IA del SLEP Andalién Sur</h3>
-      <p>Antes de comenzar, cuéntame un poco de ti para responderte de forma pertinente. Solo lo usaré durante esta conversación.</p>`);
+    agregar("bot", `<div class="robot-saludo">${ROBOT()}<div><h3>👋 ¡Hola! Soy el asistente de IA del SLEP Andalién Sur</h3>
+      <p>Antes de comenzar, cuéntame un poco de ti para responderte de forma pertinente. Solo lo usaré durante esta conversación.</p></div></div>`);
     preguntar("rol");
   }
 
@@ -1007,14 +1025,26 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   function aplicarContenido(items) {
     if (!Array.isArray(items)) return;
     // Quita lo cargado antes desde el panel y vuelve a agregar
-    for (let i = CONOCIMIENTO.length - 1; i >= 0; i--) if (CONOCIMIENTO[i].fuente === "SLEP") CONOCIMIENTO.splice(i, 1);
-    for (let i = ESTABLECIMIENTOS.length - 1; i >= 0; i--) if (ESTABLECIMIENTOS[i].remoto) ESTABLECIMIENTOS.splice(i, 1);
+    for (let i = CONOCIMIENTO.length - 1; i >= 0; i--) if (CONOCIMIENTO[i].fuente === "SLEP" || CONOCIMIENTO[i].remoto) CONOCIMIENTO.splice(i, 1);
+    // Vuelve a la base original antes de aplicar cambios (ediciones y eliminaciones del panel)
+    ESTABLECIMIENTOS.splice(0, ESTABLECIMIENTOS.length, ...ESTABLECIMIENTOS_BASE.map((e) => Object.assign({}, e)));
     items.forEach((it) => {
+      if (it.eliminado) {   // colegio de base eliminado desde el panel
+        if (it.tipo === "establecimiento") { const k = ESTABLECIMIENTOS.findIndex((e) => e.id === it.id); if (k >= 0) ESTABLECIMIENTOS.splice(k, 1); }
+        return;
+      }
       const enlaces = String(it.enlaces || "").split("\n").map((l) => l.split("|").map((x) => x.trim())).filter((x) => /^https?:\/\//.test(x[1] || x[0] || ""))
         .map((x) => (x.length > 1 ? { titulo: x[0], url: x[1] } : { titulo: x[0], url: x[0] }));
+      if (it.tipo === "documento") {   // documento o enlace: también aparece en la Biblioteca
+        const lista = enlaces.map((e) => `🔗 [${e.titulo}](${e.url})`).join("\n");
+        CONOCIMIENTO.push({ id: "doc-panel-" + it.id, fuente: "EXT", remoto: true, titulo: it.titulo + (it.organismo ? ` (${it.organismo})` : ""),
+          claves: String(it.claves || "").split(",").map((c) => c.trim()).filter(Boolean), texto: (it.texto || "") + (lista ? "\n\n" + lista : "") });
+        return;
+      }
       if (it.tipo === "establecimiento") {
         const base = ESTABLECIMIENTOS.findIndex((e) => e.id === it.id || normalizar(e.nombre) === normalizar(it.titulo));
-        const est = { id: it.id, nombre: it.titulo, comuna: it.comuna || "", entorno: it.entorno || "", niveles: it.niveles || "", alias: it.claves || "", caracteristicas: it.texto || "", enlaces, remoto: true };
+        const est = Object.assign({}, base >= 0 ? ESTABLECIMIENTOS[base] : {}, { id: it.id, nombre: it.titulo, comuna: it.comuna || "", entorno: it.entorno || "",
+          niveles: it.niveles || "", alias: it.claves || "", caracteristicas: it.texto || "", enlaces, remoto: true });
         if (base >= 0) ESTABLECIMIENTOS.splice(base, 1, est); else ESTABLECIMIENTOS.push(est);
       } else {
         const lista = enlaces.map((e) => `🔗 [${e.titulo}](${e.url})`).join("\n");

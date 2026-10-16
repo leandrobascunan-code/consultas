@@ -118,11 +118,18 @@ Página aparte, **no enlazada** desde el asistente: `https://USUARIO.github.io/R
 - La clave se verifica en **Apps Script**, nunca en GitHub. Para cambiarla: Propiedades del script → `CLAVE_ADMIN` (mínimo 8 caracteres).
 - Diez intentos fallidos bloquean el panel por 15 minutos.
 - Lo guardado queda en una planilla de Google, que se crea al ejecutar `configurarContenido` en el editor de Apps Script.
-- Tipos de registro: **Información del Servicio**, **Recurso con enlaces** y **Establecimiento (PAL)**.
-- **Carga masiva** de establecimientos, una línea por establecimiento: `Nombre ; Comuna ; Entorno ; Niveles ; Características`
+- Tres pestañas:
+  - **🏫 Establecimientos**: todos los colegios (los 80 del PAL más los agregados), agrupados por comuna, con buscador. Cada ficha se puede **editar**, **eliminar** (los del PAL se pueden **restaurar**) o volver a su **versión original**.
+  - **📚 Fuentes y documentos**: los documentos de la Biblioteca por categoría y la información del Servicio, con las mismas acciones.
+  - **➕ Añadir**: establecimiento, documento o enlace (aparece en la Biblioteca y el chat lo usa), información del Servicio o **carga masiva** de establecimientos (`Nombre ; Comuna ; Entorno ; Niveles ; Características`).
+- Editar o eliminar algo de base no modifica los archivos de GitHub: el panel guarda un registro con el mismo id que lo reemplaza o lo oculta.
 - Solo información institucional: el sistema rechaza RUT, correos y teléfonos.
 
-El asistente descarga este contenido al abrirse y lo usa para responder y para reconocer establecimientos en el perfil.
+El asistente y la Biblioteca descargan este contenido al abrirse.
+
+## 5c. Búsqueda web (Apps Script groq-5)
+
+Si los documentos del asistente no responden la consulta, la IA puede buscar en internet (herramienta `browser_search` de Groq) **solo en fuentes confiables de educación** (mineduc.cl, curriculumnacional.cl, cpeip.cl, educacionpublica.gob.cl, agenciaeducacion.cl, supereduc.cl, bcn.cl, unesco.org, oecd.org, entre otras). La respuesta termina con **"Fuentes externas sugeridas (verificar)"** y el chat muestra un aviso 🌐. Para desactivarla: propiedad `BUSQUEDA_WEB` = `no`. Si la búsqueda no está disponible en la cuenta de Groq, el asistente responde igual, sin ella.
 
 ---
 
@@ -132,3 +139,4 @@ El asistente descarga este contenido al abrirse y lo usa para responder y para r
 |---|---|---|
 | 2026-10-14 | Versión inicial | _[completar]_ |
 | 2026-10-14 | Roles, Bases Curriculares, MBE, MBDLE, convivencia, panel de configuración y manuales con logos | _[completar]_ |
+| 2026-10-15 | Biblioteca con documentos oficiales, panel con edición por comuna, búsqueda web en fuentes confiables y robot animado | _[completar]_ |

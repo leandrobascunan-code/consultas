@@ -1,7 +1,7 @@
 /* Service worker: permite instalar la app y usarla sin conexión (modo guías).
    Al publicar cambios, suba el número de VERSION para que los usuarios
    reciban la versión nueva. */
-const VERSION = "asistente-slep-v12";
+const VERSION = "asistente-slep-v13";
 const ARCHIVOS = [
   "./",
   "index.html",
@@ -17,6 +17,10 @@ const ARCHIVOS = [
   "logos-establecimientos.jpg",
   "logo-slep.png",
   "ayuda.jpg",
+  "robot.jpg",
+  "robot-cara.jpg",
+  "robot-mano-izq.png",
+  "robot-mano-der.png",
   "icon-192.png",
   "icon-512.png",
   "favicon-48.png"

@@ -322,6 +322,55 @@ button { font: inherit; cursor: pointer; }
 .escribiendo i:nth-child(3) { background: var(--slep-rojo); animation-delay: .3s; }
 @keyframes rebote { 0%, 80%, 100% { opacity: .35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-5px); } }
 
+/* ---------------------- Robot asistente animado ----------------------
+   Piezas: robot.jpg (cuerpo sin boca ni manos), robot-mano-izq/der.png y
+   la boca dibujada en SVG. Las posiciones son % de la imagen recortada. */
+.robot { position: relative; width: 112px; aspect-ratio: 412 / 480; border-radius: 18px; overflow: hidden; flex-shrink: 0;
+  background: #f1dcc3; box-shadow: 0 6px 18px rgba(0, 60, 140, .16); }
+.r-cuerpo { position: absolute; inset: 0; transform-origin: 50% 85%; animation: r-flotar 3.4s ease-in-out infinite; }
+.r-base { width: 100%; height: 100%; display: block; }
+.r-ojo { position: absolute; top: 35.2%; width: 10.2%; height: 9.2%; background: #1c1d2b; border-radius: 45%;
+  transform: translate(-50%, -50%) scaleY(0); animation: r-parpadeo 4.6s infinite; }
+.r-ojo.izq { left: 39.7%; } .r-ojo.der { left: 61.3%; }
+.r-boca { position: absolute; left: 50.2%; top: 41.8%; width: 9.7%; height: auto; transform: translate(-50%, -50%); overflow: visible;
+  filter: drop-shadow(0 0 2px #45dcff); }
+.r-boca path { fill: none; stroke: #74e8ff; stroke-width: 3.4; stroke-linecap: round; }
+.r-boca ellipse { fill: #74e8ff; opacity: 0; transform-box: fill-box; transform-origin: center; }
+.r-mano { position: absolute; top: 60.4%; height: 16.7%; animation: r-mano-i 3.4s ease-in-out infinite; }
+.r-mano.izq { left: 2.4%; width: 21.8%; transform-origin: 86% 53%; }
+.r-mano.der { left: 77.7%; width: 23.1%; transform-origin: 17% 53%; animation-name: r-mano-d; }
+/* Hablando: la boca se abre y cierra, el cuerpo se mece y las manos gesticulan */
+.hablando .r-cuerpo { animation: r-hablar 1.2s ease-in-out infinite; }
+.hablando .r-mano.izq { animation: r-gesto-i .95s ease-in-out infinite; }
+.hablando .r-mano.der { animation: r-gesto-d 1.2s ease-in-out infinite; }
+.hablando .r-boca path { opacity: 0; }
+.hablando .r-boca ellipse { opacity: 1; animation: r-boca .34s ease-in-out infinite alternate; }
+@keyframes r-flotar { 0%, 100% { transform: scale(1.06) translateY(0); } 50% { transform: scale(1.06) translateY(-1.8%); } }
+@keyframes r-hablar { 0%, 50%, 100% { transform: scale(1.07) translateY(0) rotate(0); } 25% { transform: scale(1.07) translateY(-1.4%) rotate(-1.4deg); } 75% { transform: scale(1.07) translateY(-1.4%) rotate(1.4deg); } }
+@keyframes r-mano-i { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(5deg); } }
+@keyframes r-mano-d { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-5deg); } }
+@keyframes r-gesto-i { 0%, 100% { transform: rotate(-3deg); } 45% { transform: rotate(15deg) translateY(-2%); } }
+@keyframes r-gesto-d { 0%, 100% { transform: rotate(3deg); } 55% { transform: rotate(-15deg) translateY(-2%); } }
+@keyframes r-boca { from { transform: scale(.75, .2); } to { transform: scale(1, 1); } }
+@keyframes r-parpadeo { 0%, 93%, 100% { transform: translate(-50%, -50%) scaleY(0); } 96% { transform: translate(-50%, -50%) scaleY(1); } }
+
+/* Cara del robot como ícono de cada respuesta */
+.avatar.robot-cara { position: relative; width: 40px; height: 40px; border-radius: 50%; background: #f1dcc3; }
+.robot-cara .r-ojo { top: 68.3%; width: 17.5%; height: 18.3%; } .robot-cara .r-ojo.izq { left: 30.6%; } .robot-cara .r-ojo.der { left: 67.7%; }
+.robot-cara .r-boca { left: 48.8%; top: 81.5%; width: 16.7%; }
+.avatar.hablando img { animation: r-asentir .6s ease-in-out infinite; }
+@keyframes r-asentir { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4%); } }
+
+/* Robot en el saludo y mientras piensa la respuesta */
+.msg.bot:has(.robot-saludo) .avatar, .msg.bot:has(.robot-pensando) .avatar { display: none; }   /* ya se ve el robot grande */
+.robot-saludo { display: flex; gap: 16px; align-items: center; }
+.robot-saludo h3 { margin-top: 0; }
+.robot-pensando { display: flex; gap: 14px; align-items: center; }
+.robot-pensando .robot { width: 92px; }
+.robot-pensando strong { display: block; font-size: .92rem; margin-bottom: 4px; }
+@media (max-width: 480px) { .robot-saludo .robot { width: 86px; } .robot-saludo { gap: 12px; } }
+@media (prefers-reduced-motion: reduce) { .robot *, .robot-cara * { animation: none !important; } }
+
 /* ------------------------------- Composer ------------------------------- */
 .composer { padding: 10px 24px max(14px, env(safe-area-inset-bottom)); }
 .composer-box {
@@ -359,7 +408,8 @@ button { font: inherit; cursor: pointer; }
   .composer { padding: 8px 16px max(12px, env(safe-area-inset-bottom)); }
   .hero { grid-template-columns: 1fr; padding: 22px; }
   .hero-img-wrap { max-width: 180px; justify-self: center; order: -1; }
-  .avatar { display: none; }
+  .msg.bot { flex-direction: column; gap: 6px; }
+  .avatar.robot-cara { width: 34px; height: 34px; }   /* en el celular, la cara del robot va sobre la respuesta */
   .msg.bot .burbuja { padding: 16px 14px 14px; }
 }
 

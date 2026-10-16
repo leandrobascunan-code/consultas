@@ -195,6 +195,7 @@
   </div>
   <button class="arriba" id="arriba" aria-label="Volver arriba">↑</button>
 
+  <script src="config.js"></script>
   <script src="manuales.js"></script>
   <script src="documentos.js"></script>
   <script>
@@ -249,18 +250,49 @@
     const norm = (t) => String(t).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
     const negrita = (t) => esc(t).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     let filtroCat = "";
-    $("#filtrosDoc").innerHTML = `<button class="filtro activo" data-cat="">Todos (${DOCUMENTOS.length})</button>` +
-      Object.keys(CATEGORIAS_DOC).map((c) => { const C = CATEGORIAS_DOC[c]; const n = DOCUMENTOS.filter((d) => d.cat === c).length;
-        return n ? `<button class="filtro" data-cat="${c}" style="--c:${C.color}">${C.emoji} ${esc(C.nombre)} (${n})</button>` : ""; }).join("");
+    function pintarFiltros() {
+      $("#filtrosDoc").innerHTML = `<button class="filtro ${filtroCat ? "" : "activo"}" data-cat="">Todos (${DOCUMENTOS.length})</button>` +
+        Object.keys(CATEGORIAS_DOC).map((c) => { const C = CATEGORIAS_DOC[c]; const n = DOCUMENTOS.filter((d) => d.cat === c).length;
+          return n ? `<button class="filtro ${filtroCat === c ? "activo" : ""}" data-cat="${c}" style="--c:${C.color}">${C.emoji} ${esc(C.nombre)} (${n})</button>` : ""; }).join("");
+    }
+    pintarFiltros();
+
+    /* Documentos agregados, editados o eliminados desde el panel de configuración */
+    const DOCUMENTOS_BASE = DOCUMENTOS.slice();
+    function aplicarPanel(items) {
+      if (!Array.isArray(items)) return;
+      DOCUMENTOS.splice(0, DOCUMENTOS.length, ...DOCUMENTOS_BASE);
+      items.filter((it) => it.tipo === "documento").forEach((it) => {
+        const k = DOCUMENTOS.findIndex((d) => d.id === it.id);
+        if (it.eliminado) { if (k >= 0) DOCUMENTOS.splice(k, 1); return; }
+        const enlaces = String(it.enlaces || "").split("\n").map((l) => l.split("|").map((x) => x.trim()))
+          .filter((x) => /^https?:\/\//.test(x[1] || x[0] || "")).map((x) => (x.length > 1 ? { t: x[0], url: x[1] } : { t: "Enlace", url: x[0] }));
+        const base = k >= 0 ? DOCUMENTOS[k] : {};
+        const doc = Object.assign({}, base, {
+          id: it.id, cat: CATEGORIAS_DOC[it.categoria] ? it.categoria : (base.cat || "servicio"), titulo: it.titulo,
+          org: it.organismo || base.org || "SLEP Andalién Sur", anio: it.anio || base.anio || "",
+          resumen: it.texto || base.resumen || "", url: enlaces.length ? enlaces[0].url : (base.url || ""), extras: enlaces.slice(1)
+        });
+        if (k >= 0) DOCUMENTOS.splice(k, 1, doc); else DOCUMENTOS.push(doc);
+      });
+      pintarFiltros(); if (!$("#tabDocs").hidden) pintarDocs();
+    }
+    try { aplicarPanel(JSON.parse(localStorage.getItem("slep-ia-contenido") || "null")); } catch (e) {}
+    if (typeof CONFIG !== "undefined" && CONFIG.API) {
+      fetch(CONFIG.API + "?accion=contenido").then((r) => r.json()).then((d) => {
+        if (d.ok) { aplicarPanel(d.items); try { localStorage.setItem("slep-ia-contenido", JSON.stringify(d.items)); } catch (e) {} }
+      }).catch(() => {});
+    }
 
     function tarjetaDoc(d) {
-      const C = CATEGORIAS_DOC[d.cat];
+      const C = CATEGORIAS_DOC[d.cat] || CATEGORIAS_DOC.servicio;
       const web = /^https?:\/\//.test(d.url);
       const acciones = [];
       if (web) acciones.push(`<a class="principal" href="${esc(d.url)}" target="_blank" rel="noopener">Abrir en sitio oficial ↗</a>`);
       if (d.pdf) acciones.push(`<a class="${web ? "" : "principal"}" href="${esc(d.pdf)}" target="_blank" rel="noopener">👁 Leer en línea</a>`, `<a href="${esc(d.pdf)}" download>⬇ Descargar PDF</a>`);
       if (d.pdfOficial && d.pdfOficial !== d.url) acciones.push(`<a href="${esc(d.pdfOficial)}" target="_blank" rel="noopener">📄 PDF oficial ↗</a>`);
-      const puntos = d.resumen.split("\n").map((l) => `<li>${negrita(l.replace(/^-\s*/, ""))}</li>`).join("");
+      (d.extras || []).forEach((x) => acciones.push(`<a href="${esc(x.url)}" target="_blank" rel="noopener">🔗 ${esc(x.t)} ↗</a>`));
+      const puntos = String(d.resumen).split("\n").filter((l) => l.trim()).map((l) => `<li>${negrita(l.replace(/^-\s*/, ""))}</li>`).join("");
       return `<article class="doc" id="doc-${esc(d.id)}" style="--c:${C.color}">
         <small>${esc(d.org)}${d.anio ? " · " + esc(d.anio) : ""}</small><h3>${esc(d.titulo)}</h3><ul>${puntos}</ul>
         <div class="acciones-doc">${acciones.join("")}</div></article>`;
@@ -269,7 +301,7 @@
       const q = norm($("#buscarDoc").value.trim());
       const vis = DOCUMENTOS.filter((d) => (!filtroCat || d.cat === filtroCat) && (!q || norm(d.titulo + " " + d.org + " " + d.resumen).includes(q)));
       const html = Object.keys(CATEGORIAS_DOC).map((c) => {
-        const ds = vis.filter((d) => d.cat === c); if (!ds.length) return "";
+        const ds = vis.filter((d) => (CATEGORIAS_DOC[d.cat] ? d.cat : "servicio") === c); if (!ds.length) return "";
         const C = CATEGORIAS_DOC[c];
         return `<section class="grupo-doc" style="--c:${C.color}"><h2><span class="punto"></span>${C.emoji} ${esc(C.nombre)}</h2><div class="doc-grid">${ds.map(tarjetaDoc).join("")}</div></section>`;
       }).join("");
