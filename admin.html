@@ -85,6 +85,12 @@
     .sello.nuevo { background: var(--verde-suave); color: #2f6e0c; }
     .sello.eliminado, .sello.oculto { background: var(--rojo-suave); color: var(--rojo); }
     .subtitulo { font-size: .95rem; margin: 20px 0 10px; }
+    .sello.pei-si { background: #e6f7ef; color: #0b8f6a; } .sello.pei-no { background: var(--panel-2); color: var(--texto-2); }
+    fieldset.pei { border: 1.5px solid #bfe3a0; border-radius: 14px; padding: 6px 14px 14px; margin: 16px 0 4px; background: #fbfef7; }
+    fieldset.pei legend { font-weight: 800; padding: 0 6px; }
+    details.pegar-pei { background: var(--panel); border: 1.5px dashed var(--borde); border-radius: 12px; padding: 8px 12px; margin: 8px 0; }
+    details.pegar-pei summary { cursor: pointer; font-weight: 700; font-size: .86rem; }
+    details.pegar-pei textarea { margin: 8px 0; min-height: 140px; }
 
     /* Añadir */
     .opciones-anadir { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 16px; }
@@ -204,7 +210,7 @@
       if (!d.ok) throw new Error(d.error || "Error desconocido");
       return d;
     }
-    function estado(el, texto, tipo) { if (!el) return; el.textContent = texto; el.className = "msg-estado " + (tipo || ""); }
+    function estado(el, texto, tipo) { if (!el) return; el.textContent = texto; el.classList.remove("ok", "error"); if (tipo) el.classList.add(tipo); }
 
     /* ---------- Ingreso ---------- */
     async function entrar(e) {
@@ -227,6 +233,34 @@
       catch (err) { $("#listaEst").innerHTML = $("#listaFuentes").innerHTML = `<p class="vacio">No se pudo cargar: ${esc(err.message)}</p>`; }
     }
 
+    /* ---------- PEI ---------- */
+    const peiDe = (it) => ({ mision: it.mision || "", vision: it.vision || "", sellos: it.sellos || "", historia: it.historia || "", pei: it.pei || "" });
+    const tienePEI = (e) => !!(e.mision || e.vision || e.sellos || e.historia || e.pei);
+    // Detecta en un texto pegado las partes del PEI por sus títulos habituales
+    function detectarPEI(texto) {
+      const T = String(texto || "").replace(/\r/g, "");
+      const titulos = [
+        ["mision", /^\s*(?:[\dIVX]+[.)-]?\s*)?misi[oó]n(?:\s+institucional)?\b[ \t]*[:.\-–]?[ \t]*\n?/gim],
+        ["vision", /^\s*(?:[\dIVX]+[.)-]?\s*)?visi[oó]n(?:\s+institucional)?\b[ \t]*[:.\-–]?[ \t]*\n?/gim],
+        ["sellos", /^\s*(?:[\dIVX]+[.)-]?\s*)?sellos?(?:\s+(?:educativos?|institucionales?|distintivos?))?\b[ \t]*[:.\-–]?[ \t]*\n?/gim],
+        ["historia", /^\s*(?:[\dIVX]+[.)-]?\s*)?(?:rese[ñn]a\s+hist[oó]rica|historia(?:\s+del\s+(?:establecimiento|colegio|liceo|escuela))?|antecedentes\s+hist[oó]ricos)\b[ \t]*[:.\-–]?[ \t]*\n?/gim]
+      ];
+      // Otros títulos frecuentes del PEI que cierran una sección
+      const otros = /^\s*(?:[\dIVX]+[.)-]?\s*)?(?:valores|principios|perfil|objetivos?|metas|organigrama|contexto|introducci[oó]n|presentaci[oó]n|diagn[oó]stico|evaluaci[oó]n|seguimiento|ideario|definiciones|estrategias|marco|fundamentos|enfoque|identidad|antecedentes\s+(?:generales|del\s+entorno)|información\s+institucional)\b[^\n]{0,60}$/gim;
+      const marcas = [];
+      titulos.forEach(([k, re]) => { let m; while ((m = re.exec(T))) marcas.push({ k, i: m.index, f: m.index + m[0].length }); });
+      let m; while ((m = otros.exec(T))) marcas.push({ k: null, i: m.index, f: m.index + m[0].length });
+      marcas.sort((a, b) => a.i - b.i);
+      const out = {};
+      marcas.forEach((mk, n) => {
+        if (!mk.k || out[mk.k]) return;
+        const fin = n + 1 < marcas.length ? marcas[n + 1].i : T.length;
+        const txt = T.slice(mk.f, fin).replace(/\n{3,}/g, "\n\n").trim();
+        if (txt.length > 15) out[mk.k] = txt.slice(0, mk.k === "historia" ? 8000 : 3000);
+      });
+      return out;
+    }
+
     /* ---------- Unión: base (archivos del sitio) + cambios del panel ---------- */
     function establecimientos() {
       const panel = items.filter((i) => i.tipo === "establecimiento");
@@ -239,10 +273,10 @@
         usados.add(it.id);
         if (!it.activo) return Object.assign(o, { estado: "eliminado", item: it });
         return Object.assign(o, { nombre: it.titulo, comuna: it.comuna, entorno: it.entorno, niveles: it.niveles, alias: it.claves,
-          caracteristicas: it.texto, enlaces: it.enlaces, estado: "editado", item: it });
+          caracteristicas: it.texto, enlaces: it.enlaces, estado: "editado", item: it }, peiDe(it));
       });
-      panel.filter((i) => !usados.has(i.id)).forEach((it) => lista.push({ id: it.id, nombre: it.titulo, comuna: it.comuna, entorno: it.entorno,
-        niveles: it.niveles, alias: it.claves, caracteristicas: it.texto, enlaces: it.enlaces, estado: it.activo ? "nuevo" : "oculto", item: it }));
+      panel.filter((i) => !usados.has(i.id)).forEach((it) => lista.push(Object.assign({ id: it.id, nombre: it.titulo, comuna: it.comuna, entorno: it.entorno,
+        niveles: it.niveles, alias: it.claves, caracteristicas: it.texto, enlaces: it.enlaces, estado: it.activo ? "nuevo" : "oculto", item: it }, peiDe(it))));
       return lista;
     }
     function documentos() {
@@ -307,7 +341,7 @@
           <div class="fichas">${lista.map((e) => `
             <div class="ficha ${e.estado === "eliminado" ? "eliminado" : ""}">
               <div class="info">
-                <strong>${esc(e.nombre)}</strong>${sello(e.estado)}
+                <strong>${esc(e.nombre)}</strong>${sello(e.estado)}${e.estado !== "eliminado" ? (tienePEI(e) ? '<span class="sello pei-si">PEI ✓</span>' : '<span class="sello pei-no">Sin PEI</span>') : ""}
                 <small>${[e.niveles, e.entorno, e.rbd ? "RBD " + e.rbd : "", e.alias ? "También: " + e.alias : ""].filter(Boolean).map(esc).join(" · ")}</small>
                 ${textoLargo(e.caracteristicas)}
               </div>${botonesDe(e, "establecimiento")}
@@ -344,7 +378,7 @@
     const opcionesCat = (sel) => Object.keys(CATEGORIAS_DOC).map((c) => `<option value="${c}" ${c === sel ? "selected" : ""}>${CATEGORIAS_DOC[c].emoji} ${esc(CATEGORIAS_DOC[c].nombre)}</option>`).join("");
     function formulario(tipo, v) {
       v = v || {};
-      const pie = `<div class="acciones"><button class="btn primario" type="submit">💾 Guardar</button><span class="msg-estado"></span></div>`;
+      const pie = `<div class="acciones"><button class="btn primario" type="submit">💾 Guardar</button><span class="msg-estado estado-form"></span></div>`;
       if (tipo === "establecimiento") return `
         <form data-form="establecimiento" data-id="${esc(v.id || "")}">
           <label>Nombre del establecimiento</label><input type="text" name="titulo" maxlength="200" required value="${esc(v.nombre)}">
@@ -354,8 +388,22 @@
           </div>
           <label>Niveles que imparte</label><input type="text" name="niveles" maxlength="200" value="${esc(v.niveles)}" placeholder="Ej.: Parvularia a 8° básico">
           <label>Otros nombres con que se le conoce (opcional, separados por coma)</label><input type="text" name="claves" maxlength="500" value="${esc(v.alias)}" placeholder="Ej.: sigla o nombre corto">
-          <label>Características (según el PAL)</label><textarea name="texto" maxlength="8000" placeholder="Sello, programas (PIE, SEP), focos del PAL, realidad del entorno. Sin datos personales.">${esc(v.caracteristicas)}</textarea>
-          <label>Enlaces (opcional, uno por línea: Título | https://...)</label><textarea name="enlaces" maxlength="3000" style="min-height:60px">${esc(v.enlaces)}</textarea>
+          <label>Características (según el PAL)</label><textarea name="texto" maxlength="8000" placeholder="Programas (PIE, SEP), focos del PAL, realidad del entorno. Sin datos personales.">${esc(v.caracteristicas)}</textarea>
+          <fieldset class="pei">
+            <legend>📘 Proyecto Educativo Institucional (PEI)</legend>
+            <p class="ayuda">El asistente usa la misión, la visión, los sellos y la historia para alinear sus sugerencias con cada colegio.</p>
+            <details class="pegar-pei"><summary>📋 Pegar el texto del PEI y completar automáticamente</summary>
+              <textarea class="pei-fuente" placeholder="Copie y pegue aquí el PEI (o las partes de misión, visión, sellos e historia). El panel detecta cada parte y llena los campos de abajo; luego puede revisarlos."></textarea>
+              <button class="btn sec" type="button" data-detectar-pei>✨ Detectar misión, visión, sellos e historia</button> <span class="msg-estado pei-estado"></span>
+            </details>
+            <label>🎯 Misión</label><textarea name="mision" maxlength="3000" style="min-height:80px">${esc(v.mision)}</textarea>
+            <label>🔭 Visión</label><textarea name="vision" maxlength="3000" style="min-height:80px">${esc(v.vision)}</textarea>
+            <label>⭐ Sellos educativos</label><textarea name="sellos" maxlength="3000" style="min-height:70px">${esc(v.sellos)}</textarea>
+            <label>📜 Historia o reseña</label><textarea name="historia" maxlength="8000">${esc(v.historia)}</textarea>
+            <label>🔗 Enlace al PEI completo (https://…)</label><input type="text" name="pei" maxlength="500" value="${esc(v.pei)}" placeholder="Ej.: enlace al PDF del PEI en el sitio del colegio o en Mime (mime.mineduc.cl)">
+            <p class="ayuda">Con el enlace, la IA puede consultar el PEI cuando necesite más información, y en el chat aparece el botón «Ver el PEI completo».</p>
+          </fieldset>
+          <label>Otros enlaces (opcional, uno por línea: Título | https://...)</label><textarea name="enlaces" maxlength="3000" style="min-height:60px">${esc(v.enlaces)}</textarea>
           ${pie}</form>`;
       if (tipo === "documento") return `
         <form data-form="documento" data-id="${esc(v.id || "")}">
@@ -386,8 +434,9 @@
     async function guardarForm(form) {
       const tipo = form.dataset.form;
       const f = Object.fromEntries(new FormData(form).entries());
-      const salida = form.querySelector(".msg-estado");
-      if (PERSONALES.test([f.titulo, f.texto, f.claves].join(" "))) { estado(salida, "⚠️ Detecté un RUT, correo o teléfono. Quítelo antes de guardar.", "error"); return; }
+      const salida = form.querySelector(".estado-form");
+      if (PERSONALES.test([f.titulo, f.texto, f.claves, f.mision, f.vision, f.sellos, f.historia].join(" "))) { estado(salida, "⚠️ Detecté un RUT, correo o teléfono. Quítelo antes de guardar.", "error"); return; }
+      if (f.pei && !/^https?:\/\//.test(f.pei.trim())) { estado(salida, "⚠️ El enlace al PEI debe comenzar con https://", "error"); return; }
       if (String(f.enlaces || "").split("\n").some((l) => l.trim() && !/https?:\/\//.test(l))) { estado(salida, "⚠️ Cada enlace debe incluir https://", "error"); return; }
       const item = Object.assign({ id: form.dataset.id, tipo, activo: true }, f);
       const boton = form.querySelector("button[type=submit]"); boton.disabled = true; estado(salida, "Guardando…");
@@ -468,6 +517,16 @@
     document.addEventListener("click", (e) => {
       const b = e.target.closest("[data-acc]"); if (b) return accion(b.dataset.acc, b.dataset.tipo, b.dataset.id);
       const vm = e.target.closest(".ver-mas"); if (vm) { const p = vm.previousElementSibling; p.classList.toggle("abierto"); vm.textContent = p.classList.contains("abierto") ? "Ver menos" : "Ver más"; }
+      const dp = e.target.closest("[data-detectar-pei]");
+      if (dp) {   // Llena misión, visión, sellos e historia a partir del PEI pegado
+        const form = dp.closest("form"), salida = form.querySelector(".pei-estado");
+        const r = detectarPEI(form.querySelector(".pei-fuente").value);
+        const nombres = { mision: "misión", vision: "visión", sellos: "sellos", historia: "historia" };
+        const hallados = Object.keys(r);
+        hallados.forEach((k) => { form.elements[k].value = r[k]; });
+        estado(salida, hallados.length ? `✅ Completé: ${hallados.map((k) => nombres[k]).join(", ")}. Revise el texto antes de guardar.` :
+          "No encontré los títulos «Misión», «Visión», «Sellos» o «Historia/Reseña histórica». Puede copiar cada parte directamente en su campo.", hallados.length ? "ok" : "error");
+      }
       if (e.target.id === "btnMasivo") cargaMasiva();
     });
     document.addEventListener("submit", (e) => { const f = e.target.closest("[data-form]"); if (f) { e.preventDefault(); guardarForm(f); } });

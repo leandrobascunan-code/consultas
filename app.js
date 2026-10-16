@@ -422,6 +422,24 @@
     return htmlFicha(top.ficha, rel);
   }
 
+  /* Proyecto Educativo Institucional (PEI): misión, visión, sellos e historia de cada colegio */
+  const PEI_PARTES = [["mision", "🎯", "Misión"], ["vision", "🔭", "Visión"], ["sellos", "⭐", "Sellos educativos"], ["historia", "📜", "Historia"]];
+  // Quita el nombre del colegio del texto que va a la IA (la regla: no identificarlo)
+  function sinNombre(t, est) {
+    let s = String(t || "");
+    [est.nombre].concat(String(est.alias || "").split(",")).map((x) => x.trim()).filter((x) => x.length > 3)
+      .forEach((n) => { s = s.replace(new RegExp(n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi"), "el establecimiento"); });
+    return s.replace(/\b(d)el el establecimiento/gi, "$1el establecimiento").replace(/\b(a)l? el establecimiento/gi, "$1l establecimiento")
+      .replace(/\b(e)l el establecimiento/gi, "$1l establecimiento");
+  }
+  function contextoPEI(est) {
+    if (!est) return "";
+    const partes = PEI_PARTES.filter(([k]) => est[k]).map(([k, , t]) => `${t}: ${sinNombre(est[k], est).slice(0, k === "historia" ? 1500 : 900)}`);
+    if (!partes.length && !est.pei) return "";
+    return (partes.length ? ` Proyecto Educativo Institucional (PEI) del establecimiento — ${partes.join(" | ")}.` +
+      " Alinea tus sugerencias, ejemplos y materiales con esta misión, visión, sellos e historia, nombrando la conexión cuando sea útil." : "") +
+      (est.pei ? ` PEI completo (consúltalo si necesitas más información): ${est.pei}` : "");
+  }
   function contextoPerfil() {
     const p = leerPerfil();
     if (!p) return "";
@@ -430,7 +448,8 @@
     if (p.rol && ROLES[p.rol]) partes.push(`Rol de quien consulta: ${ROLES[p.rol].nombre}. Referente principal: ${ROLES[p.rol].marco}.`);
     if (p.comuna) partes.push(`Trabaja en un establecimiento de educación pública de la comuna de ${p.comuna}` + (p.entorno ? `, entorno ${p.entorno.toLowerCase()}` : "") + ".");
     if (p.alcance) partes.push(`Quiere trabajar con: ${p.alcance.toLowerCase()}.`);
-    if (est && est.caracteristicas) partes.push(`Características del establecimiento (sin identificarlo): ${est.caracteristicas}`);
+    if (est && est.caracteristicas) partes.push(`Características del establecimiento (sin identificarlo): ${sinNombre(est.caracteristicas, est)}`);
+    const pei = contextoPEI(est); if (pei) partes.push(pei.trim());
     return partes.length ? `\n\n### Contexto de quien consulta\n${partes.join(" ")} Adapta tus sugerencias a este rol y contexto, sin estereotipos.` : "";
   }
 
@@ -460,7 +479,8 @@
   async function respuestaIA(consulta, estMencionado) {
     const contexto = buscar(consulta, 4).map((r) => `### ${r.ficha.titulo} (${FUENTES[r.ficha.fuente] || r.ficha.fuente})\n${r.ficha.texto}`).join("\n\n") + contextoPerfil() +
       (estMencionado ? `\n\n### Establecimiento mencionado en la consulta\n${estMencionado.nombre}` + (estMencionado.comuna ? ` (${estMencionado.comuna}` + (estMencionado.entorno ? `, ${estMencionado.entorno.toLowerCase()}` : "") + ")" : "") +
-        (estMencionado.niveles ? `. Niveles: ${estMencionado.niveles}` : "") + (estMencionado.caracteristicas ? `. Características según el PAL: ${estMencionado.caracteristicas}` : "") : "") +
+        (estMencionado.niveles ? `. Niveles: ${estMencionado.niveles}` : "") + (estMencionado.caracteristicas ? `. Características según el PAL: ${estMencionado.caracteristicas}` : "") +
+        (estDePerfil(leerPerfil()) === estMencionado ? "" : contextoPEI(estMencionado)) : "") +
       INSTRUCCION_ACLARAR;
     const previos = historial.slice(-9, -1).map((m) => ({
       role: m.rol === "user" ? "user" : "assistant",
@@ -943,10 +963,16 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
         chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Diseñar material con IA", primario: true }]);
     }
     const enlaces = (est.enlaces || []).map((e) => `- [${e.titulo}](${e.url})`).join("\n");
+    // PEI: cada parte con su botón "Copiar"
+    const pei = PEI_PARTES.filter(([k]) => est[k]).map(([k, ico, t]) =>
+      `<div class="pei-bloque"><strong>${ico} ${t}</strong><button class="btn-copiar" type="button">Copiar</button><p>${escapar(est[k])}</p></div>`).join("");
     return `<h3>🏫 ${escapar(est.nombre)}</h3>` +
       markdown([est.comuna ? `**Comuna:** ${est.comuna}` : "", est.entorno ? `**Entorno:** ${est.entorno}` : "", est.niveles ? `**Niveles:** ${est.niveles}` : "",
-        est.caracteristicas ? `\n${est.caracteristicas}` : "", enlaces ? `\n**Enlaces:**\n${enlaces}` : ""].filter(Boolean).join("\n")) +
-      `<div class="nota">Fuente: Plan Anual Local del Servicio y registros del equipo. Usaré estas características (sin el nombre) para adaptar tus prompts.</div>` +
+        est.caracteristicas ? `\n${est.caracteristicas}` : ""].filter(Boolean).join("\n")) +
+      (pei || est.pei ? `<h4 class="titulo-sec"><span class="ico-sec" style="--c:#4fa61a"></span>Proyecto Educativo Institucional (PEI)</h4>${pei}` +
+        (est.pei ? `<p>📄 <a href="${escapar(est.pei)}" target="_blank" rel="noopener" class="ref-oficial">Ver el PEI completo</a></p>` : "") : "") +
+      (enlaces ? markdown(`**Enlaces:**\n${enlaces}`) : "") +
+      `<div class="nota">Fuente: Plan Anual Local, PEI y registros del equipo del Servicio. Usaré estos elementos (sin el nombre del colegio) para adaptar mis sugerencias a su misión, visión y sellos.</div>` +
       chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Diseñar material con IA", primario: true }]);
   }
 
@@ -1049,8 +1075,11 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       if (res.length) {
         const exacto = res[0].puntaje >= 0.97 && (res.length === 1 || res[1].puntaje < 0.9);
         const delPerfil = perfilSesion && res.find((r) => r.e.id === perfilSesion.estId);
+        // Si ya pasó la etapa del perfil (eligió colegio o la omitió), no se vuelve a preguntar por establecimientos
+        const perfilListo = !!perfilSesion && !enInicio;
         if (exacto) { estMencionado = res[0].e; }
         else if (delPerfil) { estMencionado = delPerfil.e; }   // es su propio colegio: no hace falta preguntar
+        else if (perfilListo) { /* nombre aproximado: se responde sin interrumpir */ }
         else {
           pendiente = { texto, candidatos: res.map((r) => r.e.id) };
           agregar("bot", `<p>Creo que mencionas un establecimiento, pero no lo encontré escrito así. Para no suponer, ¿te refieres a ${res.length === 1 ? "este" : "alguno de estos"}?</p>` +
@@ -1117,7 +1146,8 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       if (it.tipo === "establecimiento") {
         const base = ESTABLECIMIENTOS.findIndex((e) => e.id === it.id || normalizar(e.nombre) === normalizar(it.titulo));
         const est = Object.assign({}, base >= 0 ? ESTABLECIMIENTOS[base] : {}, { id: it.id, nombre: it.titulo, comuna: it.comuna || "", entorno: it.entorno || "",
-          niveles: it.niveles || "", alias: it.claves || "", caracteristicas: it.texto || "", enlaces, remoto: true });
+          niveles: it.niveles || "", alias: it.claves || "", caracteristicas: it.texto || "", enlaces, remoto: true,
+          mision: it.mision || "", vision: it.vision || "", sellos: it.sellos || "", historia: it.historia || "", pei: /^https?:\/\//.test(it.pei || "") ? it.pei : "" });
         if (base >= 0) ESTABLECIMIENTOS.splice(base, 1, est); else ESTABLECIMIENTOS.push(est);
       } else {
         const lista = enlaces.map((e) => `🔗 [${e.titulo}](${e.url})`).join("\n");

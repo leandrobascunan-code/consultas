@@ -267,6 +267,11 @@ button { font: inherit; cursor: pointer; }
 .ico-sec { width: 20px; height: 20px; border-radius: 7px; flex-shrink: 0; position: relative;
   background: linear-gradient(135deg, var(--c), color-mix(in srgb, var(--c) 55%, #fff)); box-shadow: 0 2px 6px color-mix(in srgb, var(--c) 40%, transparent); }
 .ico-sec::after { content: ""; position: absolute; inset: 6px 7px 6px 8px; background: #fff; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+/* PEI del establecimiento en el chat: cada parte con su botón Copiar */
+.pei-bloque { position: relative; background: var(--panel-2); border: 1px solid var(--borde); border-left: 4px solid #4fa61a; border-radius: 12px;
+  padding: 10px 14px; margin: 8px 0; }
+.pei-bloque strong { display: block; font-size: .88rem; padding-right: 76px; }
+.pei-bloque p { margin: 6px 0 0; white-space: pre-line; font-size: .9rem; }
 /* Aviso de datos personales en el saludo inicial */
 .aviso-privacidad { display: flex; gap: 10px; align-items: flex-start; margin-top: 12px; padding: 11px 14px; border-radius: 14px;
   background: var(--verde-suave); border-left: 5px solid #90d039; font-size: .88rem; line-height: 1.45; }

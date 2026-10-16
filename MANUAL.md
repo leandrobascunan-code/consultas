@@ -122,6 +122,7 @@ Página aparte, **no enlazada** desde el asistente: `https://USUARIO.github.io/R
   - **🏫 Establecimientos**: todos los colegios (los 80 del PAL más los agregados), agrupados por comuna, con buscador. Cada ficha se puede **editar**, **eliminar** (los del PAL se pueden **restaurar**) o volver a su **versión original**.
   - **📚 Fuentes y documentos**: los documentos de la Biblioteca por categoría y la información del Servicio, con las mismas acciones.
   - **➕ Añadir**: establecimiento, documento o enlace (aparece en la Biblioteca y el chat lo usa), información del Servicio o **carga masiva** de establecimientos (`Nombre ; Comuna ; Entorno ; Niveles ; Características`).
+- **PEI de cada colegio** (al editar o agregar un establecimiento): misión, visión, sellos, historia y enlace al PEI completo. El botón «📋 Pegar el texto del PEI» detecta cada parte por sus títulos. El asistente usa el PEI (sin el nombre del colegio) para alinear sus sugerencias, y en «Ver datos de mi establecimiento» muestra cada parte con un botón **Copiar**. Requiere Apps Script groq-6.
 - Editar o eliminar algo de base no modifica los archivos de GitHub: el panel guarda un registro con el mismo id que lo reemplaza o lo oculta.
 - Solo información institucional: el sistema rechaza RUT, correos y teléfonos.
 
