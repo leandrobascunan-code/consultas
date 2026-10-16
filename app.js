@@ -472,7 +472,8 @@
     if (est && est.caracteristicas) partes.push(`Características del establecimiento (sin identificarlo): ${sinNombre(est.caracteristicas, est)}`);
     const pei = contextoPEI(est); if (pei) partes.push(pei.trim());
     return partes.length ? `\n\n### Contexto de quien consulta\n${partes.join(" ")} Adapta tus sugerencias a este rol, cargo y contexto, a la normativa vigente y, cuando exista, ` +
-      "a la misión, visión y sellos del PEI, sin estereotipos." : "";
+      "a la misión, visión y sellos del PEI, sin estereotipos. Para contextualizar, usa la realidad socioeconómica, comunitaria y natural del territorio; " +
+      "no asumas ni repitas referencias geográficas puntuales (por ejemplo, un río) que la persona o el contexto no hayan indicado." : "";
   }
 
   const REGLA_SIN_PROMPTS = "Responde TÚ directamente con el contenido, la orientación o el material solicitado. " +
@@ -484,6 +485,7 @@
     "Si la consulta es clara, responde directamente.";
   const INSTRUCCION_MATERIAL = "\n\n### Cómo responder\nLa persona ya entregó todos los datos necesarios. Elabora DIRECTAMENTE el material completo, " +
     "listo para usar, siguiendo la especificación. NO escribas un prompt ni expliques cómo pedírselo a otra IA. " +
+    "Contextualiza con la realidad socioeconómica, comunitaria y natural indicada (no agregues referencias geográficas que no estén en la especificación). " +
     "Al final agrega una breve sección «Para revisar antes de usar» (2 a 4 puntos: alineación curricular, pertinencia, sesgos) y la declaración de uso de IA.";
 
   /* Elabora un material con la IA a partir de la especificación armada paso a paso */
@@ -777,7 +779,7 @@
         const sug = c ? c.referencias : [];
         agregar("bot", titulo("¿Qué referencias locales quieres que use la IA?") +
           (c ? `<p>Sugerencias para <strong>${escapar(d.comuna)}</strong> (${escapar(c.descripcion)}):</p><ul>${sug.map((s) => `<li>${escapar(s)}</li>`).join("")}</ul>` : "") +
-          `<p>Puedes usarlas o <strong>escribir las tuyas</strong>, que suelen ser mejores: la feria del sector, un estero o cerro cercano, una actividad productiva o una tradición local.</p>` +
+          `<p>Puedes usarlas o <strong>escribir las tuyas</strong>, que suelen ser mejores: la realidad del barrio o sector, sus organizaciones, los oficios y actividades productivas de las familias, un espacio natural cercano o una tradición local.</p>` +
           chips((c ? [{ accion: "wizard", valor: "sugeridas", etiqueta: "Usar las sugeridas", primario: true }] : [])
             .concat([{ accion: "wizard", valor: "-", etiqueta: "Sin referencias locales" }])));
         break;
@@ -847,10 +849,14 @@
     const omitido = valor === "-";
     switch (wizard.paso) {
       case "rol": {
-        const rol = ROLES[valor] ? valor : Object.keys(ROLES).find((k) => normalizar(ROLES[k].nombre).includes(normalizar(valor)) || normalizar(valor).includes(normalizar(ROLES[k].corto)));
-        if (!rol) { agregar("bot", `<p>Elige una de las opciones:</p>` + chipsRoles()); return; }
+        let rol = ROLES[valor] ? valor : Object.keys(ROLES).find((k) => normalizar(ROLES[k].nombre).includes(normalizar(valor)) || normalizar(valor).includes(normalizar(ROLES[k].corto)));
+        const det = !rol ? detectarRolCargo(normalizar(valor)) : null;   // escrito con sus palabras: "soy jefa de UTP"
+        if (det) rol = det.rol;
+        if (!rol) { agregar("bot", `<p>Elige una de las opciones o escríbelo con tus palabras (por ejemplo, <em>"soy jefa de UTP"</em>):</p>` + chipsRoles()); return; }
         d.rol = rol; guardarPerfil({ rol, cargo: "", cargoId: "", alcanceSlep: "", estIds: [] });
-        if (wizard.soloPerfil) { preguntar(perfilesDelRol(rol).length ? "cargo" : (rol === "slep" ? "alcanceSlep" : "estInicio")); return; }
+        const cargoDet = det && det.cargoId && PERFILES.find((x) => x.id === det.cargoId);
+        if (cargoDet) guardarPerfil({ cargoId: cargoDet.id, cargo: cargoDet.nombre });
+        if (wizard.soloPerfil) { preguntar(!cargoDet && perfilesDelRol(rol).length ? "cargo" : (rol === "slep" ? "alcanceSlep" : "estInicio")); return; }
         const pre = wizard.prefill && wizard.prefill.tipo;
         if (pre && pre.roles.includes(rol)) aplicarTipo(pre); else preguntar("tipo");
         return;
@@ -874,8 +880,10 @@
         const siguiente = () => preguntar(p.rol === "slep" ? "alcanceSlep" : "estInicio");
         if (valor === "otro") { wizard.n--; preguntar("cargoOtro"); return; }
         if (omitido) { siguiente(); return; }
+        const det = !valor.startsWith("cargo:") ? detectarRolCargo(normalizar(valor)) : null;
         const x = valor.startsWith("cargo:") ? PERFILES.find((c) => c.id === valor.slice(6))
-          : perfilesDelRol(p.rol).find((c) => normalizar(c.nombre).includes(normalizar(valor)));
+          : perfilesDelRol(p.rol).find((c) => normalizar(c.nombre).includes(normalizar(valor)))
+            || (det && det.cargoId && det.rol === p.rol ? PERFILES.find((c) => c.id === det.cargoId) : null);
         if (x) guardarPerfil({ cargoId: x.id, cargo: x.nombre }); else guardarPerfil({ cargo: valor.slice(0, 120), cargoId: "" });
         siguiente(); return;
       }
@@ -1132,6 +1140,60 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     return { tipo, tema: m ? m[1].trim() : "" };
   }
 
+  /* ---- Respuestas escritas durante las preguntas (sin tocar las opciones) ---- */
+  // Si el texto corresponde a una de las opciones del último mensaje, devuelve su valor
+  function chipCoincidente(n) {
+    const ult = el.mensajes.lastElementChild;
+    if (!ult || n.length < 4) return null;
+    let mejor = null;
+    ult.querySelectorAll('button[data-accion="wizard"]').forEach((b) => {
+      const lab = normalizar(b.textContent).replace(/\(\d+\)/g, "").trim();
+      if (lab.length < 3) return;
+      if (lab === n || lab.includes(n) || (lab.length >= 5 && n.includes(lab) && n.split(" ").length <= lab.split(" ").length + 1)) { if (!mejor || lab.length > mejor.l) mejor = { v: b.dataset.valor, l: lab.length }; }
+    });
+    return mejor ? mejor.v : null;
+  }
+  const RE_CONSULTA = /^(que|como|cual|cuales|donde|cuando|por que|porque|puedo|se puede|necesito|quiero|quisiera|ayudame|ayuda|me puedes|podrias|puedes|dame|hazme|haz|crea|creame|genera|elabora|redacta|disena|explica|explicame|tengo una (duda|consulta)|una consulta|consulta|ideas|sugiere|sugerencias|recomienda)\b/;
+  // Pasos donde se espera texto libre: ahí lo escrito siempre es la respuesta
+  const PASOS_LIBRES = ["tema", "oa", "proposito", "contexto", "cargoOtro", "otraComuna", "referencias"];
+  // Pasos con opciones fijas: lo que no coincide con una opción se trata como consulta
+  const PASOS_FIJOS = ["alcance", "alcanceSlep", "comunaSlep", "entorno", "tipo"];
+  function esConsultaFueraDelPaso(n) {
+    const paso = wizard && wizard.paso;
+    if (!paso || PASOS_LIBRES.includes(paso)) return false;
+    const palabras = n.split(" ").length;
+    const consulta = RE_CONSULTA.test(n) || palabras >= 9;
+    if (paso === "rol") return !RE_SALUDO.test(n) && !detectarRolCargo(n);
+    if (PASOS_FIJOS.includes(paso)) return consulta || palabras > 5;
+    return consulta && palabras >= 3;   // nombre de colegio, cargo, nivel, asignatura, etc.
+  }
+  // Reconoce rol (y si se puede, el cargo) en lo que la persona escribe: "soy jefa de UTP", "trabajo en finanzas del SLEP"
+  const CLAVES_CARGO = [
+    [/\b(director(a)? ejecutiv|subdirector)/, "slep-direccion"], [/\b(asesor(a)?|atp)\b.*(tecnico|pedagog)|\batp\b/, "slep-atp"],
+    [/planificacion y control|control de gestion/, "slep-planificacion"], [/finanzas|presupuesto|contabilidad|compras publicas|abastecimiento/, "slep-finanzas"],
+    [/gestion de personas|recursos humanos|\brrhh\b|remuneraciones/, "slep-personas"], [/juridic|abogad/, "slep-juridica"],
+    [/infraestructura|mantencion/, "slep-infra"], [/comunicaciones|periodist|vinculacion/, "slep-comunicaciones"],
+    [/informatic|tecnologias de la informacion|soporte tecnico/, "slep-ti"],
+    [/\butp\b|unidad tecnico pedagogica|jefe(a)? tecnic/, "dir-utp"], [/inspector(a)? general/, "dir-inspector"], [/orientador(a)?/, "dir-orientador"],
+    [/\bdirector(a)?\b/, "dir-director"],
+    [/convivencia/, "asi-convivencia"], [/psicolog|fonoaudiolog|terapeuta|kinesiolog|psicopedagog/, "asi-pie"], [/trabajador(a)? social|dupla/, "asi-dupla"],
+    [/tecnic[oa] en (educacion )?parvul|asistente de aula/, "asi-tecnico"], [/paradocente|inspector(a)? de patio/, "asi-paradocente"],
+    [/biblioteca|\bcra\b/, "asi-cra"], [/auxiliar/, "asi-auxiliar"],
+    [/profesor(a)? jefe/, "doc-jefatura"], [/educador(a)? de parvulos|educadora/, "doc-parvularia"], [/diferencial/, "doc-diferencial"],
+    [/tecnico profesional|especialidad/, "doc-tp"], [/\b(profesor|profesora|docente)\b/, "doc-aula"]
+  ];
+  function detectarRolCargo(n) {
+    const panel = PERFILES.find((x) => normalizar(x.nombre).length > 5 && n.includes(normalizar(x.nombre)));
+    if (panel) return { rol: panel.rol, cargoId: panel.id };
+    const c = CLAVES_CARGO.find(([re]) => re.test(n));
+    const x = c && PERFILES.find((p) => p.id === c[1]);
+    if (x) return { rol: x.rol, cargoId: x.id };
+    if (/\b(slep|servicio local|nivel central)\b/.test(n)) return { rol: "slep" };
+    if (/\basistente\b/.test(n)) return { rol: "asistente" };
+    if (/\bdirectiv/.test(n)) return { rol: "directivo" };
+    return null;
+  }
+
   async function procesar(texto, { omitirRevision = false, directo = false, estMencionado = null, yaMostrado = false } = {}) {
     texto = texto.trim();
     if (!texto || ocupado) return;
@@ -1139,6 +1201,16 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
 
     // Respuestas dentro del asistente de prompts
     if (wizard && !RE_WIZARD.test(n)) {
+      // Escribir el nombre de una opción equivale a tocarla
+      const chip = chipCoincidente(n);
+      if (chip) { agregarUsuario(texto); avanzarWizard(chip); return; }
+      // Si escribió una consulta en vez de responder, se responde la consulta (no se obliga a marcar una opción)
+      if (esConsultaFueraDelPaso(n)) {
+        const eraInicio = !!wizard.inicio;
+        wizard = null;
+        if (eraInicio) { enInicio = false; el.sugerencias.hidden = false; }
+        return procesar(texto, { omitirRevision, directo, estMencionado, yaMostrado });
+      }
       const priv = revisarPrivacidad(texto);
       agregarUsuario(texto);
       if (priv.hallazgos.length) {
@@ -1169,7 +1241,9 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
 
     if (!yaMostrado) agregarUsuario(texto);
 
-    if (RE_WIZARD.test(n)) { iniciarWizard(); return; }
+    // "Diseñar un material" a secas abre el paso a paso; si ya viene con detalles ("ayúdame a crear una guía de fracciones
+    // para 5° básico"), se responde directamente y el paso a paso queda como opción
+    if (RE_WIZARD.test(n) && n.split(" ").length <= 6) { iniciarWizard(); return; }
     if (RE_PERFIL.test(n)) { iniciarWizard(true); return; }
     if (RE_MIEST.test(n)) { agregar("bot", respuestaMiEstablecimiento()); return; }
     // "¿Qué establecimientos hay en Florida?": lista exacta desde el PAL (sin pasar por la IA)
@@ -1218,20 +1292,20 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       }
     }
 
-    // ¿Pide un material? Ofrecer armarlo paso a paso en vez de suponer nivel y contexto
+    // ¿Pide un material? Se responde igual y se ofrece armarlo paso a paso (opcional)
+    let ofrecerPaso = false;
     if (!directo) {
-      const pedido = detectarPedido(n);
+      const pedido = detectarPedido(n) || (RE_WIZARD.test(n) ? { tipo: null, tema: "" } : null);
       if (pedido) {
+        // Se responde de inmediato (la IA pregunta lo que falte); armarlo paso a paso queda como opción, sin obligar a elegir
         pendiente = { texto, pedido, estMencionado };
-        agregar("bot", `<p>Entendí que quieres ${pedido.tipo ? "una <strong>" + escapar(pedido.tipo.nombre.toLowerCase()) + "</strong>" : "un material"}${pedido.tema ? " sobre «" + escapar(pedido.tema) + "»" : ""}. ` +
-          `Para no suponer datos importantes (nivel, asignatura u OA, destinatarios, contexto de tu establecimiento), te propongo armarlo paso a paso.</p>` +
-          chips([{ accion: "pedido-paso", valor: "x", etiqueta: "✏️ Sí, paso a paso", primario: true }, { accion: "pedido-directo", valor: "x", etiqueta: "Responder directamente" }]));
-        return;
+        ofrecerPaso = true;
       }
     }
+    const extra = ofrecerPaso ? chips([{ accion: "pedido-paso", valor: "x", etiqueta: "✏️ Prefiero armarlo paso a paso" }]) : "";
 
     if (!MODO_IA) {
-      agregar("bot", (estMencionado ? tarjetaEstablecimiento(estMencionado) : "") + respuestaLocal(texto));
+      agregar("bot", (estMencionado ? tarjetaEstablecimiento(estMencionado) : "") + respuestaLocal(texto) + extra);
       return;
     }
 
@@ -1240,7 +1314,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     try {
       const html = await respuestaIA(texto, estMencionado);
       espera.remove();
-      agregar("bot", html);
+      agregar("bot", html + extra);
     } catch (e) {
       espera.remove();
       agregar("bot", respuestaLocal(texto) + `<div class="nota">No pude conectar con el servicio de IA, así que te respondo con los manuales. (${escapar(e.message)})</div>`);

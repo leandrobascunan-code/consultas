@@ -439,7 +439,7 @@ Conviene empezar por los primeros e ir avanzando a medida que se consolida crite
 - **Rúbricas:** criterios y niveles de logro.
 - **Ítems:** preguntas con distractores plausibles.
 - **Adaptación de textos:** bajar complejidad léxica sin bajar exigencia cognitiva.
-- **Contextualización local:** situaciones con referencias reconocibles en el entorno del establecimiento: el río Biobío, el comercio del sector, la actividad agrícola o forestal de la zona.
+- **Contextualización local:** situaciones con referencias reconocibles en el entorno del establecimiento: su realidad socioeconómica y comunitaria, el comercio y los oficios del sector, la actividad agrícola o forestal y el entorno natural de la zona.
 - **Retroalimentación:** formulaciones descriptivas desde la rúbrica.
 
 **Límites:** la IA no conoce con precisión las **Bases Curriculares** → verifique todo OA en el currículum oficial. Generar la rúbrica es delegable; **evaluar con ella no**.
@@ -1145,21 +1145,24 @@ const DESTINATARIOS = ["Docentes", "Familias y apoderados", "Estudiantes", "Equi
    Son puntos de partida: cada docente puede reemplazarlas por las del
    entorno real de su establecimiento. Edite o agregue según necesidad. */
 const COMUNAS = {
+  /* La realidad de cada comuna se describe por sus condiciones socioeconómicas, sociales y naturales
+     (no por un solo hito geográfico). Son orientaciones generales: lo más pertinente es el contexto
+     propio de cada establecimiento (PEI, PAL y lo que indique la persona). */
   "Concepción": {
-    descripcion: "capital regional, con barrios residenciales, comercio, servicios, universidades y también sectores periurbanos",
-    referencias: ["el río Biobío y el río Andalién", "el cerro Caracol y el Parque Ecuador", "la laguna Las Tres Pascualas", "el comercio del centro y las ferias", "el transporte público y el Biotrén", "las universidades y la vida de barrio"]
+    descripcion: "capital regional con realidades socioeconómicas diversas: barrios consolidados y sectores con mayor vulnerabilidad social, comercio, servicios, universidades y vida comunitaria; entorno natural de cerros, parques y lagunas urbanas",
+    referencias: ["la vida de barrio y las organizaciones comunitarias (juntas de vecinos, clubes, centros culturales)", "el comercio local, las ferias libres y los oficios de las familias", "las universidades, bibliotecas y espacios culturales cercanos", "el transporte público y los trayectos diarios", "los cerros, parques y lagunas urbanas", "la diversidad de realidades socioeconómicas del sector"]
   },
   "Chiguayante": {
-    descripcion: "comuna ribereña del Biobío, entre cerros de la cordillera de la Costa, con barrios residenciales y tradición textil",
-    referencias: ["la ribera del río Biobío", "los cerros y quebradas con bosque", "el Biotrén y la conexión con Concepción", "su historia textil", "el comercio local y las ferias", "la vida de barrio"]
+    descripcion: "comuna residencial del Gran Concepción con barrios de distinta realidad socioeconómica, historia industrial textil, fuerte vida comunitaria y un entorno natural de cerros y quebradas con bosque",
+    referencias: ["la vida de barrio y las organizaciones comunitarias", "su historia industrial y los oficios de las familias", "el comercio local y las ferias", "los trayectos diarios y el trabajo fuera de la comuna", "los cerros, quebradas y senderos con bosque", "el cuidado del entorno natural y la prevención de incendios"]
   },
   "Florida": {
-    descripcion: "comuna del secano interior de la cordillera de la Costa, con sectores rurales, agricultura familiar y actividad forestal",
-    referencias: ["la agricultura familiar y las huertas", "la actividad forestal y el cuidado del bosque nativo", "los sectores rurales como Copiulemu", "los caminos rurales y el transporte interurbano", "las ferias y productos locales", "la prevención de incendios forestales"]
+    descripcion: "comuna rural del secano interior, con población dispersa, agricultura familiar campesina y actividad forestal, distancias largas a los servicios y fuerte vida comunitaria",
+    referencias: ["la agricultura familiar y las huertas", "la actividad forestal y el cuidado del bosque nativo", "los sectores rurales como Copiulemu", "las distancias, los caminos rurales y el transporte", "las ferias, productos locales y tradiciones campesinas", "la prevención de incendios forestales"]
   },
   "Hualqui": {
-    descripcion: "comuna ribereña del Biobío de origen histórico, con zona urbana y extensos sectores rurales, agrícolas y forestales",
-    referencias: ["la ribera del río Biobío", "los sectores rurales como Talcamávida y Quilacoya", "la agricultura y la actividad forestal", "su historia colonial y patrimonio local", "el tren y la conexión con Concepción", "la vida de pueblo y sus tradiciones"]
+    descripcion: "comuna de origen histórico con un centro urbano pequeño y extensos sectores rurales, economía agrícola y forestal, realidades socioeconómicas diversas y tradiciones locales",
+    referencias: ["los sectores rurales como Talcamávida y Quilacoya", "la agricultura, la actividad forestal y los oficios locales", "su historia colonial y patrimonio", "los trayectos y el transporte hacia el Gran Concepción", "la vida de pueblo, sus fiestas y tradiciones", "el cuidado del bosque y la prevención de incendios"]
   }
 };
 
