@@ -183,18 +183,34 @@
   }
   /* Detecta si una consulta del chat menciona un establecimiento registrado,
      aunque esté mal escrito. Devuelve [{ e, puntaje }] o []. */
-  const PALABRAS_INSTITUCION = ["escuela", "colegio", "liceo", "jardin", "complejo", "instituto", "establecimiento", "cole", "sala"];
+  const PALABRAS_INSTITUCION = ["escuela", "colegio", "liceo", "jardin", "complejo", "instituto", "establecimiento"];
+  // Palabras de uso diario que aparecen en nombres de colegios: por sí solas NO indican que se nombra uno
+  const COMUNES_NOMBRE = new Set(("educacion especial adultos parvularia experimental integrado polivalente nueva nuevo esperanza amor chile comun " +
+    "agua luna calle nino ninos nina ninas santa santo hospital gran siete puente claro corta fundo cancha palma toro bicentenario poetas " +
+    "profesora profesor juntas libertadores republica concepcion chiguayante florida hualqui andalien biobio manitos pasitos semillitas " +
+    "piececitos lucero estela gloria blanca").split(" "));
+  const mencionesDescartadas = new Set();   // colegios que la persona ya dijo que NO nombraba (en esta conversación)
   function detectarMencion(texto) {
     const todas = normalizar(texto).split(" ").filter((w) => w.length > 1);
     const q = palabrasNombre(texto);
     if (!q.length) return [];
-    const nombraInstitucion = todas.some((w) => PALABRAS_INSTITUCION.some((p) => simPalabra(w, p) >= 0.75));
-    const esInstitucion = (w) => w === "basica" || w === "basico" || PALABRAS_INSTITUCION.some((p) => simPalabra(w, p) >= 0.75);
+    // Solo palabras largas y muy parecidas: "para" o "cada" ya no se confunden con "sala"
+    const esInstitucion = (w) => w === "cole" || (w.length >= 5 && PALABRAS_INSTITUCION.some((p) => simPalabra(w, p) >= 0.8)) ||
+      (w === "sala" && todas.includes("cuna"));
+    const nombraInstitucion = todas.some(esInstitucion);
     return ESTABLECIMIENTOS.map((e) => {
       let mejor = 0;
+      if (mencionesDescartadas.has(e.id)) return { e, puntaje: 0 };
       [e.nombre].concat(String(e.alias || "").split(",")).filter((v) => v.trim()).forEach((v) => {
         const n = palabrasNombre(v);
         if (!n.length) return;
+        // Sin "escuela/colegio/liceo…" en la frase, hace falta nombrar con claridad 2 palabras propias del nombre
+        if (!nombraInstitucion) {
+          const propias = n.filter((x) => x.length >= 4 && !COMUNES_NOMBRE.has(x));
+          const ok = propias.filter((x) => q.some((w) => w.length >= 4 && simPalabra(w, x) >= 0.85));
+          if (propias.length >= 2 && ok.length >= 2) mejor = Math.max(mejor, ok.length === propias.length ? 1 : 0.8);
+          return;
+        }
         if (!nombraInstitucion && n.length < 2) return;
         const sims = n.map((x) => Math.max(...q.map((w) => simPalabra(w, x))));
         if (sims.every((s) => s === 1) && (n.length >= 2 || nombraInstitucion)) {
@@ -205,7 +221,7 @@
           }
           mejor = 1; return;
         }
-        const distintivas = n.map((x, i) => (x.length >= 4 ? sims[i] : 0));
+        const distintivas = n.map((x, i) => (x.length >= 4 && !COMUNES_NOMBRE.has(x) ? sims[i] : 0));
         const mejorPalabra = Math.max(...distintivas);
         const cobertura = sims.reduce((s, x) => s + x, 0) / n.length;
         if (n.length === 1) return;                         // una sola palabra solo cuenta si coincide exacta (arriba)
@@ -941,9 +957,11 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       const res = detectarMencion(texto);
       if (res.length) {
         const exacto = res[0].puntaje >= 0.97 && (res.length === 1 || res[1].puntaje < 0.9);
+        const delPerfil = perfilSesion && res.find((r) => r.e.id === perfilSesion.estId);
         if (exacto) { estMencionado = res[0].e; }
+        else if (delPerfil) { estMencionado = delPerfil.e; }   // es su propio colegio: no hace falta preguntar
         else {
-          pendiente = { texto };
+          pendiente = { texto, candidatos: res.map((r) => r.e.id) };
           agregar("bot", `<p>Creo que mencionas un establecimiento, pero no lo encontré escrito así. Para no suponer, ¿te refieres a ${res.length === 1 ? "este" : "alguno de estos"}?</p>` +
             chips(res.map((r, i) => ({ accion: "mencion", valor: r.e.id, etiqueta: `${r.e.nombre}${r.e.comuna ? " (" + r.e.comuna + ")" : ""}`, primario: i === 0 }))
               .concat([{ accion: "mencion", valor: "-", etiqueta: "Ninguno, responder igual" }])));
@@ -1092,7 +1110,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
 
   /* Conversación nueva = todo desde cero, incluido el perfil (rol, colegio, alcance) */
   function nuevaConversacion() {
-    historial = []; wizard = null; pendiente = null;
+    historial = []; wizard = null; pendiente = null; mencionesDescartadas.clear();
     el.mensajes.innerHTML = ""; el.bienvenida.hidden = false; el.elaborado.hidden = false; el.chat.scrollTop = 0;
     cerrarMenu();
     iniciarConversacion();
@@ -1190,6 +1208,8 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       const p = pendiente; pendiente = null;
       const est = ESTABLECIMIENTOS.find((x) => x.id === valor);
       agregarUsuario(est ? est.nombre : "Ninguno, responder igual");
+      // Los colegios descartados no se vuelven a sugerir en esta conversación
+      (p.candidatos || []).forEach((id) => { if (!est || id !== est.id) mencionesDescartadas.add(id); });
       // Se agrega el nombre real a la consulta antes de responder
       const texto = est ? `${p.texto} (establecimiento: ${est.nombre})` : p.texto;
       procesar(texto, { omitirRevision: true, yaMostrado: true, estMencionado: est || null });
