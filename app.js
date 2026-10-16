@@ -96,6 +96,65 @@
     return html;
   }
 
+  /* Enlaces automáticos: cuando una respuesta nombra una ley, un decreto o un documento
+     oficial, se vuelve un enlace a su fuente oficial (una vez por respuesta). */
+  const BCN = (n) => "https://www.bcn.cl/leychile/consulta/listaresultadosimple?cadena=" + encodeURIComponent(n);
+  const NUM_LEY = "(?:N\\.?\\s*[°º]?\\s*|N[°º]\\s*|Nº\\s*)?";
+  const REFERENCIAS = [
+    { id: "21719", re: new RegExp("\\bLey\\s+" + NUM_LEY + "21\\.?719\\b", "i"), url: "https://www.bcn.cl/leychile/navegar?idNorma=1208650" },
+    { id: "21040", re: new RegExp("\\bLey\\s+" + NUM_LEY + "21\\.?040\\b", "i"), url: "https://www.bcn.cl/leychile/navegar?idNorma=1111237" },
+    { id: "19628", re: new RegExp("\\bLey\\s+" + NUM_LEY + "19\\.?628\\b", "i"), url: "https://www.bcn.cl/leychile/navegar?idNorma=141599" },
+    { id: "20285", re: new RegExp("\\bLey\\s+" + NUM_LEY + "20\\.?285\\b", "i"), url: "https://www.bcn.cl/leychile/navegar?idNorma=276363" },
+    { id: "21809", re: new RegExp("\\bLey\\s+" + NUM_LEY + "21\\.?809\\b", "i"), url: "https://culturaeducativa.mineduc.gob.cl/recursos-convivencia/" },
+    { id: "ley", re: new RegExp("\\bLey\\s+" + NUM_LEY + "(\\d{1,2}\\.?\\d{3})\\b", "i"), url: (m) => BCN(m[1].replace(".", "")) },
+    { id: "dto", re: /\bDecreto\s+(?:Supremo\s+|Exento\s+)?(?:N\.?\s*[°º]?\s*|N[°º]\s*)?(\d{1,4})(?:\s+de\s+(\d{4}))?/i, url: (m) => BCN("decreto " + m[1] + (m[2] ? " " + m[2] : "")) },
+    { id: "mbe-ep", re: /\bMarco para la Buena Enseñanza de (?:la )?Educación Parvularia\b|\bMBE-EP\b/i, url: "https://parvularia.mineduc.cl/wp-content/uploads/2020/05/19-10-30-MBE-EP-Final-para-web-largo-comprimido-1.pdf" },
+    { id: "mbe", re: /\bMarco para la Buena Enseñanza\b|\bMBE\b/i, url: "https://estandaresdocentes.mineduc.cl/wp-content/uploads/2021/08/MBE-2.pdf" },
+    { id: "mbdle", re: /\bMarco para la Buena Dirección(?: y el Liderazgo Escolar)?\b|\bMBDLE\b/i, url: "https://liderazgoeducativo.mineduc.cl/marco-para-la-buena-direccion-y-el-liderazgo-escolar-2/" },
+    { id: "bases", re: /\bBases Curriculares\b/i, url: "https://www.curriculumnacional.cl/Curriculum/Bases_Curriculares" },
+    { id: "eid", re: /\bEstándares Indicativos de Desempeño\b/i, url: "https://liderazgoeducativo.mineduc.cl/estandares-indicativos-de-desempeno/" },
+    { id: "pme", re: /\bPlan de Mejoramiento Educativo\b|\bPME\b/, url: "https://liderazgoeducativo.mineduc.cl/orientaciones-pme-2026-2/" },
+    { id: "pnia", re: /\bPolítica Nacional de Inteligencia Artificial\b/i, url: "https://www.bcn.cl/leychile/navegar?idNorma=1210664" },
+    { id: "conv", re: /\bPolítica Nacional de Convivencia(?: Educativa| Escolar)?\b/i, url: "https://culturaeducativa.mineduc.gob.cl/recursos-convivencia/" },
+    { id: "unesco", re: /\bGuía (?:de la UNESCO )?para el uso de (?:la )?IA generativa\b/i, url: "https://unesdoc.unesco.org/ark:/48223/pf0000389227_spa" },
+    { id: "agencia", re: /\bAgencia de (?:la )?Calidad de la Educación\b/i, url: "https://www.agenciaeducacion.cl" },
+    { id: "super", re: /\bSuperintendencia de Educación\b/i, url: "https://www.supereduc.cl" },
+    { id: "cpeip", re: /\bCPEIP\b/, url: "https://www.cpeip.cl" },
+    { id: "pal", re: /\bPlan Anual Local\b/i, url: "manuales.html#doc-pal-2026" },
+    { id: "url", re: /\bhttps?:\/\/[^\s<>"')\]]+[^\s<>"')\].,;:!?]/i, url: (m) => m[0] },
+    { id: "dom", re: /\b(?:www\.)?(?:mineduc|curriculumnacional|cpeip|bcn|agenciaeducacion|supereduc|educacionpublica|junaeb|unesco|digital\.gob)\.(?:cl|org|gob\.cl)(?:\/[^\s<>"')\]]*[^\s<>"')\].,;:!?])?/i, url: (m) => "https://" + m[0] }
+  ];
+  const SIN_ENLACE = /^(a|button|code|pre|span|summary|label|h3|h4|textarea|svg)$/i;
+  function enlazar(html) {
+    const usados = new Set();
+    let dentro = 0;
+    return html.split(/(<[^>]+>)/).map((parte) => {
+      const tag = parte.match(/^<(\/?)([a-z0-9]+)/i);
+      if (tag) { if (SIN_ENLACE.test(tag[2]) && !/\/>$/.test(parte)) dentro += tag[1] ? -1 : 1; return parte; }
+      if (dentro > 0 || !parte.trim()) return parte;
+      // Todas las menciones encontradas; gana la más temprana y, a igual inicio, la más larga o específica
+      const cand = [];
+      REFERENCIAS.forEach((r, k) => {
+        const re = new RegExp(r.re.source, r.re.flags.replace("g", "") + "g");
+        let m; while ((m = re.exec(parte))) { cand.push({ r, m, k, i: m.index, f: m.index + m[0].length }); if (!m[0]) re.lastIndex++; }
+      });
+      cand.sort((a, b) => a.i - b.i || (b.f - b.i) - (a.f - a.i) || a.k - b.k);
+      let pos = 0, salida = "";
+      cand.forEach(({ r, m, i, f }) => {
+        if (i < pos) return;
+        // Clave: cada ley o decreto (por número), dirección o documento se enlaza una sola vez por respuesta
+        const clave = /^\d+$/.test(r.id) || r.id === "ley" ? "ley" + (m[1] || r.id).replace(".", "") :
+          r.id === "dto" ? "dto" + m[1] : r.id === "url" || r.id === "dom" ? m[0].toLowerCase() : r.id;
+        if (usados.has(clave)) return;
+        usados.add(clave);
+        const url = typeof r.url === "function" ? r.url(m) : r.url;
+        salida += parte.slice(pos, i) + `<a href="${url}" target="_blank" rel="noopener" class="ref-oficial">${m[0]}</a>`;
+        pos = f;
+      });
+      return salida + parte.slice(pos);
+    }).join("");
+  }
+
   /* ================================================================
      2. MOTOR DE BÚSQUEDA LOCAL (se reconstruye al recibir contenido nuevo)
      ================================================================ */
@@ -273,9 +332,9 @@
   /* Robot asistente: cuerpo completo (saludo y "pensando") y cara (ícono de cada respuesta) */
   const BOCA = `<svg class="r-boca" viewBox="0 0 40 20" aria-hidden="true"><path d="M4 5 Q20 19 36 5"/><ellipse cx="20" cy="9" rx="9" ry="6"/></svg>`;
   const OJOS = `<span class="r-ojo izq"></span><span class="r-ojo der"></span>`;
-  const ROBOT = (clase = "") => `<div class="robot ${clase}" aria-hidden="true"><div class="r-cuerpo"><img class="r-base" src="robot.jpg" alt="">${OJOS}${BOCA}` +
+  const ROBOT = (clase = "") => `<div class="robot ${clase}" aria-hidden="true"><div class="r-cuerpo"><img class="r-base" src="robot.png" alt="">${OJOS}${BOCA}` +
     `<img class="r-mano izq" src="robot-mano-izq.png" alt=""><img class="r-mano der" src="robot-mano-der.png" alt=""></div></div>`;
-  const AVATAR = `<div class="avatar robot-cara" aria-hidden="true"><img src="robot-cara.jpg" alt="">${OJOS}${BOCA}</div>`;
+  const AVATAR = `<div class="avatar robot-cara" aria-hidden="true"><img src="robot-cara.png" alt="">${OJOS}${BOCA}</div>`;
   // Hace "hablar" al robot de un mensaje durante un rato (según el largo de la respuesta)
   function hablar(nodo, ms) {
     const r = nodo && (nodo.querySelector(".robot") || nodo.querySelector(".avatar")); if (!r) return;
@@ -289,6 +348,7 @@
      leyendo); los mensajes propios y el indicador de escritura van al final. */
   function agregar(rol, html, { texto = "", guardar = true, alFinal = false } = {}) {
     if (!enInicio) ocultarBienvenida();   // durante las preguntas iniciales se mantiene la portada arriba
+    if (rol === "bot" && guardar) html = enlazar(html);   // leyes y documentos oficiales con enlace
     const div = document.createElement("div");
     div.className = `msg ${rol}`;
     div.innerHTML = rol === "bot" ? `${AVATAR}<div class="burbuja">${html}</div>` : `<div class="burbuja">${html}</div>`;
@@ -655,7 +715,8 @@
       <p><strong>¿En qué te ayudo?</strong> Escríbeme tu consulta con tus palabras, o elige una opción:</p>` +
       chips([{ accion: "wizard-iniciar", valor: "x", etiqueta: "✏️ Diseñar un material", primario: true }]
         .concat(p.estId ? [{ valor: "Mi establecimiento", etiqueta: "🏫 Ver datos de mi establecimiento" }] : [])
-        .concat(sug)));
+        .concat(sug)
+        .concat([{ accion: "escribir", valor: "x", etiqueta: "✍️ Otro: escribir lo que necesito" }])));
     if (fueInicio) el.entrada.focus();
   }
   function elegirEstablecimiento(est) {
@@ -1231,6 +1292,11 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     else if (accion === "wizard-iniciar") { cerrarMenu(); agregarUsuario("Diseñar material con IA"); iniciarWizard(); }
     else if (accion === "wizard" && wizard) { agregarUsuario(b.textContent.trim()); avanzarWizard(valor); }
     else if (accion === "ir") { location.href = valor; }
+    else if (accion === "escribir") {   // "Otro": invita a escribir con sus palabras
+      el.entrada.placeholder = "Escribe aquí lo que necesitas…";
+      el.form.classList.add("resaltar"); setTimeout(() => el.form.classList.remove("resaltar"), 2400);
+      el.entrada.focus();
+    }
     else if (accion === "perfil-iniciar") { cerrarMenu(); agregarUsuario("Mi perfil"); iniciarWizard(true); }
     else if (accion === "wizard-cancelar") { wizard = null; agregar("bot", "<p>Listo, cancelé el asistente. ¿En qué más te ayudo?</p>"); }
     else if (accion === "enviar-limpio") procesar(valor, { omitirRevision: true });

@@ -133,6 +133,7 @@ button { font: inherit; cursor: pointer; }
 .ver-prompt summary { cursor: pointer; font-size: .82rem; font-weight: 700; color: var(--texto-2); }
 .ayuda-chat { font-size: .82rem; color: var(--texto-2); margin-top: 10px !important; }
 .burbuja a { color: var(--azul); font-weight: 600; text-decoration-thickness: 1.5px; text-underline-offset: 2px; word-break: break-word; }
+.burbuja a.ref-oficial::after { content: " ↗"; font-size: .8em; }   /* abre la fuente oficial en otra pestaña */
 
 .temas { flex: 1; overflow-y: auto; margin: 4px -6px 0; padding: 0 6px; }
 .temas details { border-radius: 12px; margin-bottom: 4px; }
@@ -322,12 +323,15 @@ button { font: inherit; cursor: pointer; }
 .escribiendo i:nth-child(3) { background: var(--slep-rojo); animation-delay: .3s; }
 @keyframes rebote { 0%, 80%, 100% { opacity: .35; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-5px); } }
 
-/* ---------------------- Robot asistente animado ----------------------
-   Piezas: robot.jpg (cuerpo sin boca ni manos), robot-mano-izq/der.png y
-   la boca dibujada en SVG. Las posiciones son % de la imagen recortada. */
-.robot { position: relative; width: 112px; aspect-ratio: 412 / 480; border-radius: 18px; overflow: hidden; flex-shrink: 0;
-  background: #f1dcc3; box-shadow: 0 6px 18px rgba(0, 60, 140, .16); }
-.r-cuerpo { position: absolute; inset: 0; transform-origin: 50% 85%; animation: r-flotar 3.4s ease-in-out infinite; }
+/* ---------------------- Robot asistente animado (3D) ----------------------
+   Piezas: robot.png (cuerpo sin fondo, sin boca ni manos), robot-mano-izq/der.png
+   y la boca en SVG. Las posiciones son % de la imagen. El efecto 3D sale de la
+   perspectiva (giro suave), la sombra en el piso y la profundidad (drop-shadow). */
+.robot { position: relative; width: 96px; aspect-ratio: 309 / 360; flex-shrink: 0; perspective: 420px; }
+.robot::after { content: ""; position: absolute; left: 22%; right: 22%; bottom: -2%; height: 7%; border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 40, 90, .38), rgba(0, 40, 90, 0)); animation: r-sombra 3.4s ease-in-out infinite; z-index: 0; }
+.r-cuerpo { position: absolute; inset: 0; z-index: 1; transform-origin: 50% 90%; transform-style: preserve-3d;
+  filter: drop-shadow(0 4px 5px rgba(0, 40, 100, .28)); animation: r-flotar 3.4s ease-in-out infinite; }
 .r-base { width: 100%; height: 100%; display: block; }
 .r-ojo { position: absolute; top: 35.2%; width: 10.2%; height: 9.2%; background: #1c1d2b; border-radius: 45%;
   transform: translate(-50%, -50%) scaleY(0); animation: r-parpadeo 4.6s infinite; }
@@ -339,38 +343,48 @@ button { font: inherit; cursor: pointer; }
 .r-mano { position: absolute; top: 60.4%; height: 16.7%; animation: r-mano-i 3.4s ease-in-out infinite; }
 .r-mano.izq { left: 2.4%; width: 21.8%; transform-origin: 86% 53%; }
 .r-mano.der { left: 77.7%; width: 23.1%; transform-origin: 17% 53%; animation-name: r-mano-d; }
-/* Hablando: la boca se abre y cierra, el cuerpo se mece y las manos gesticulan */
-.hablando .r-cuerpo { animation: r-hablar 1.2s ease-in-out infinite; }
+/* Hablando: boca que se abre y cierra, cuerpo que se mece y gira, manos que gesticulan */
+.hablando .r-cuerpo { animation: r-hablar 1.6s ease-in-out infinite; }
+.hablando::after { animation: r-sombra-hablar 1.6s ease-in-out infinite; }
 .hablando .r-mano.izq { animation: r-gesto-i .95s ease-in-out infinite; }
 .hablando .r-mano.der { animation: r-gesto-d 1.2s ease-in-out infinite; }
 .hablando .r-boca path { opacity: 0; }
 .hablando .r-boca ellipse { opacity: 1; animation: r-boca .34s ease-in-out infinite alternate; }
-@keyframes r-flotar { 0%, 100% { transform: scale(1.06) translateY(0); } 50% { transform: scale(1.06) translateY(-1.8%); } }
-@keyframes r-hablar { 0%, 50%, 100% { transform: scale(1.07) translateY(0) rotate(0); } 25% { transform: scale(1.07) translateY(-1.4%) rotate(-1.4deg); } 75% { transform: scale(1.07) translateY(-1.4%) rotate(1.4deg); } }
-@keyframes r-mano-i { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(5deg); } }
-@keyframes r-mano-d { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-5deg); } }
-@keyframes r-gesto-i { 0%, 100% { transform: rotate(-3deg); } 45% { transform: rotate(15deg) translateY(-2%); } }
-@keyframes r-gesto-d { 0%, 100% { transform: rotate(3deg); } 55% { transform: rotate(-15deg) translateY(-2%); } }
+@keyframes r-flotar { 0%, 100% { transform: translateY(0) rotateY(-10deg); } 50% { transform: translateY(-5%) rotateY(10deg); } }
+@keyframes r-sombra { 0%, 100% { transform: scaleX(1); opacity: 1; } 50% { transform: scaleX(.78); opacity: .6; } }
+@keyframes r-hablar {
+  0%, 100% { transform: translateY(0) rotateY(-14deg) rotateZ(0); }
+  25% { transform: translateY(-4%) rotateY(0) rotateZ(-2deg); }
+  50% { transform: translateY(0) rotateY(14deg) rotateZ(0); }
+  75% { transform: translateY(-4%) rotateY(0) rotateZ(2deg); } }
+@keyframes r-sombra-hablar { 0%, 50%, 100% { transform: scaleX(1); opacity: 1; } 25%, 75% { transform: scaleX(.82); opacity: .65; } }
+@keyframes r-mano-i { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(6deg); } }
+@keyframes r-mano-d { 0%, 100% { transform: rotate(0); } 50% { transform: rotate(-6deg); } }
+@keyframes r-gesto-i { 0%, 100% { transform: rotate(-3deg); } 45% { transform: rotate(16deg) translateY(-2%); } }
+@keyframes r-gesto-d { 0%, 100% { transform: rotate(3deg); } 55% { transform: rotate(-16deg) translateY(-2%); } }
 @keyframes r-boca { from { transform: scale(.75, .2); } to { transform: scale(1, 1); } }
 @keyframes r-parpadeo { 0%, 93%, 100% { transform: translate(-50%, -50%) scaleY(0); } 96% { transform: translate(-50%, -50%) scaleY(1); } }
 
-/* Cara del robot como ícono de cada respuesta */
-.avatar.robot-cara { position: relative; width: 40px; height: 40px; border-radius: 50%; background: #f1dcc3; }
+/* Cara del robot (sin fondo) como ícono de cada respuesta */
+.avatar.robot-cara { position: relative; width: 42px; height: 42px; overflow: visible; background: none; box-shadow: none; border-radius: 0;
+  filter: drop-shadow(0 3px 4px rgba(0, 40, 100, .25)); animation: r-cara 3.4s ease-in-out infinite; }
 .robot-cara .r-ojo { top: 68.3%; width: 17.5%; height: 18.3%; } .robot-cara .r-ojo.izq { left: 30.6%; } .robot-cara .r-ojo.der { left: 67.7%; }
 .robot-cara .r-boca { left: 48.8%; top: 81.5%; width: 16.7%; }
-.avatar.hablando img { animation: r-asentir .6s ease-in-out infinite; }
-@keyframes r-asentir { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4%); } }
+.avatar.robot-cara.hablando { animation: r-cara-hablar .9s ease-in-out infinite; }
+@keyframes r-cara { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-6%) rotate(3deg); } }
+@keyframes r-cara-hablar { 0%, 100% { transform: translateY(0) rotate(-6deg); } 50% { transform: translateY(-8%) rotate(6deg); } }
 
 /* Robot en el saludo y mientras piensa la respuesta */
 .msg.bot:has(.robot-saludo) .avatar, .msg.bot:has(.robot-pensando) .avatar { display: none; }   /* ya se ve el robot grande */
-.robot-saludo { display: flex; gap: 16px; align-items: center; }
+.robot-saludo { display: flex; gap: 14px; align-items: center; }
 .robot-saludo h3 { margin-top: 0; }
-.robot-pensando { display: flex; gap: 14px; align-items: center; }
-.robot-pensando .robot { width: 92px; }
+.robot-pensando { display: flex; gap: 12px; align-items: center; }
+.robot-pensando .robot { width: 72px; }
 .robot-pensando strong { display: block; font-size: .92rem; margin-bottom: 4px; }
-@media (max-width: 480px) { .robot-saludo .robot { width: 86px; } .robot-saludo { gap: 12px; } }
-@media (prefers-reduced-motion: reduce) { .robot *, .robot-cara * { animation: none !important; } }
-
+@media (max-width: 480px) {
+  .robot-saludo .robot { width: 70px; } .robot-pensando .robot { width: 58px; } .robot-saludo { gap: 10px; }
+  .avatar.robot-cara { width: 36px; height: 36px; }
+}
 /* ------------------------------- Composer ------------------------------- */
 .composer { padding: 10px 24px max(14px, env(safe-area-inset-bottom)); }
 .composer-box {
@@ -378,6 +392,8 @@ button { font: inherit; cursor: pointer; }
   background: var(--panel); border: 2px solid var(--borde); border-radius: 20px; padding: 8px 8px 8px 18px;
   box-shadow: var(--sombra); transition: border-color .15s, box-shadow .15s;
 }
+.composer-box.resaltar { animation: resaltar 1.2s ease-in-out 2; }
+@keyframes resaltar { 0%, 100% { box-shadow: var(--sombra); } 50% { box-shadow: 0 0 0 6px rgba(144, 208, 57, .45), var(--sombra); border-color: #90d039; } }
 .composer-box:focus-within { border-color: var(--slep-celeste); box-shadow: 0 0 0 4px rgba(58, 191, 240, .18), var(--sombra); }
 .composer textarea {
   flex: 1; border: 0; outline: 0; resize: none; background: transparent; color: var(--texto);
