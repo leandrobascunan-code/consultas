@@ -314,6 +314,9 @@ button { font: inherit; cursor: pointer; }
 .g-pie { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 8px; font-size: .74rem; color: var(--texto-2); }
 .g-ver-datos { border: 1px solid var(--borde); background: var(--panel); color: var(--azul); border-radius: 999px; padding: 4px 11px; font: inherit; font-weight: 700; cursor: pointer; }
 .g-tabla { margin-top: 8px; overflow-x: auto; }
+.g-sello { color: var(--verde); font-weight: 700; }
+.g-fuente a { color: var(--azul); font-weight: 700; }
+.grafico-rechazado { border-left-color: var(--slep-amarillo); }
 .g-desde-tabla { margin: 8px 0 4px; }
 
 /* ---------------- Videos de YouTube (miniatura → reproductor) ---------------- */
@@ -326,7 +329,13 @@ button { font: inherit; cursor: pointer; }
 .yt-icono::after { content: ""; position: absolute; left: 27px; top: 14px; border-style: solid; border-width: 10px 0 10px 17px; border-color: transparent transparent transparent #fff; }
 @keyframes yt-latido { 0%, 100% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.08); } }
 .yt-marco { aspect-ratio: 16 / 9; } .yt-marco iframe { width: 100%; height: 100%; border: 0; display: block; }
-.yt-pie { background: var(--panel); color: var(--texto); font-size: .82rem; font-weight: 600; padding: 8px 12px; }
+.yt-pie { background: var(--panel); color: var(--texto); font-size: .82rem; padding: 9px 12px; display: flex; flex-direction: column; gap: 3px; }
+.yt-pie strong { font-size: .86rem; }
+.yt-canal { color: var(--verde); font-weight: 700; font-size: .76rem; }
+.yt-canal a { color: inherit; }
+.yt-alerta { background: var(--amarillo-suave); color: #6b4a00; border-radius: 8px; padding: 6px 9px; font-weight: 600; font-size: .78rem; margin-top: 3px; }
+.video-yt.verificando { background: var(--panel); }
+.video-no { color: var(--texto-2); } .video-no s { text-decoration-color: rgba(229, 47, 63, .6); } .video-no em { color: var(--rojo); font-style: normal; font-weight: 600; }
 
 /* ---------------- Imágenes en las respuestas ---------------- */
 .img-resp { margin: 12px 0; max-width: 560px; }

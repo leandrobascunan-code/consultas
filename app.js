@@ -134,8 +134,32 @@
   const corto = (t, n) => (String(t).length > n ? String(t).slice(0, n - 1) + "…" : String(t));
   const numAnim = (v, u, extra = "") => `<tspan class="g-num" data-v="${v}" data-u="${escapar(u || "")}"${extra}>${fmtNum(v, u)}</tspan>`;
 
+  /* Verificación de datos: un gráfico de la IA solo se dibuja si sus números están en la información que el
+     asistente le entregó (PAL, fichas, perfil) o si indica el enlace exacto de donde salen los datos. */
+  let contextoVigente = "";   // contexto enviado en la última consulta a la IA
+  const numerosDe = (txt) => new Set((String(txt).match(/-?\d[\d.,]*\d|-?\d/g) || []).map((x) => aNumero(x)).filter((x) => x !== null).map((x) => +x.toFixed(2)));
+  const valoresDe = (spec) => spec.tipo === "cifras" ? (spec.cifras || []).map((c) => aNumero(c.valor))
+    : (spec.series || []).flatMap((s) => (s.datos || []).map(aNumero));
+  function verificarDatos(spec, contexto) {
+    const enlace = /^https:\/\//.test(spec.enlace || "") ? spec.enlace : ((String(spec.fuente || "").match(/https:\/\/\S+/) || [])[0] || "");
+    const vals = valoresDe(spec).filter((x) => x !== null);
+    if (vals.length && contexto) {
+      const enCtx = numerosDe(contexto);
+      if (vals.every((v) => enCtx.has(+v.toFixed(2)))) return { estado: "contexto", enlace };
+    }
+    if (enlace && spec.fuente) return { estado: "enlace", enlace };
+    return { estado: "sin-fuente" };
+  }
   function graficoDesdeTexto(txt) {
-    try { return graficoHTML(JSON.parse(desescapar(txt))); } catch (e) { console.warn("Gráfico no válido:", e.message); return ""; }
+    let spec;
+    try { spec = JSON.parse(desescapar(txt)); } catch (e) { console.warn("Gráfico no válido:", e.message); return ""; }
+    const v = verificarDatos(spec, contextoVigente);
+    if (v.estado === "sin-fuente") {
+      return `<div class="nota grafico-rechazado">📊 No muestro este gráfico porque sus datos no tienen una fuente verificable: no coinciden con la información del asistente ni indican el enlace de donde provienen.</div>`;
+    }
+    spec.enlace = v.enlace;
+    spec._sello = v.estado === "contexto" ? "✅ Datos verificados con la información del asistente" : "🔗 Datos de una fuente externa: revísalos en el enlace";
+    return graficoHTML(spec);
   }
   // spec: { tipo, titulo, etiquetas, series:[{nombre, datos}], unidad, fuente }  ·  tipo "cifras": { cifras:[{etiqueta, valor, unidad}] }
   function graficoHTML(spec) {
@@ -238,7 +262,9 @@
     return `<figure class="grafico" data-tipo="${escapar(tipo)}">` +
       (spec.titulo ? `<figcaption class="g-titulo"><span class="ico-sec" style="--c:#0071ea"></span>${escapar(spec.titulo)}</figcaption>` : "") +
       cuerpo + leyenda +
-      `<div class="g-pie">${spec.fuente ? `<span class="g-fuente">Fuente: ${escapar(spec.fuente)}</span>` : `<span class="g-fuente">Fuente no indicada: verifica los datos.</span>`}` +
+      `<div class="g-pie"><span class="g-fuente">${spec.fuente ? `Fuente: ${escapar(spec.fuente)}` : "Fuente no indicada"}` +
+        (spec.enlace ? ` · <a href="${escapar(spec.enlace)}" target="_blank" rel="noopener">ver fuente ↗</a>` : "") +
+        (spec._sello ? `<br><span class="g-sello">${escapar(spec._sello)}</span>` : "") + `</span>` +
       `<button class="g-ver-datos" type="button">Ver datos</button></div><div class="g-tabla" hidden>${tabla}</div></figure>`;
   }
 
@@ -278,6 +304,10 @@
     nodo.querySelectorAll(".burbuja table").forEach((t) => {
       if (t.closest(".grafico") || t.dataset.grafico) return;
       const spec = graficoDesdeTabla(t); if (!spec) return;
+      // Solo se ofrece graficar una tabla si sus números coinciden con la información real del asistente
+      const v = verificarDatos(spec, contextoVigente);
+      if (v.estado !== "contexto") return;
+      spec._sello = "✅ Datos verificados con la información del asistente";
       t.dataset.grafico = "1";
       const b = document.createElement("button");
       b.type = "button"; b.className = "chip g-desde-tabla"; b.textContent = "📊 Ver como gráfico";
@@ -294,21 +324,63 @@
       const m = a.getAttribute("href").match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/|live\/)|youtu\.be\/)([\w-]{11})/);
       if (!m || vistos.has(m[1]) || vistos.size >= 3) return;
       vistos.add(m[1]);
-      const id = m[1], titulo = a.textContent.replace(/^▶️?\s*/, "").trim();
-      const card = document.createElement("div");
-      card.className = "video-yt";
-      card.innerHTML = `<button type="button" class="yt-play" aria-label="Reproducir video: ${escapar(titulo)}"><img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy"><span class="yt-icono"></span></button>` +
-        `<div class="yt-pie">▶️ ${escapar(corto(titulo, 90))} · YouTube</div>`;
-      const im = card.querySelector("img");
-      im.addEventListener("load", () => { if (im.naturalWidth <= 120) card.remove(); });   // miniatura genérica = video inexistente
-      im.addEventListener("error", () => card.remove());
-      card.querySelector(".yt-play").addEventListener("click", () => {
-        card.querySelector(".yt-play").outerHTML = `<div class="yt-marco"><iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="${escapar(titulo)}" ` +
-          `allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
-      });
+      const id = m[1];
       const bloque = a.closest("li") ? a.closest("ul, ol") : a.closest("p, h4, div.nota") || a;
+      const textoCerca = normalizar((a.closest("li, p") || a).textContent);
+      const card = document.createElement("div");
+      card.className = "video-yt verificando";
+      card.innerHTML = `<div class="yt-pie">🔎 Verificando el video en YouTube…</div>`;
       (ultimoDe.get(bloque) || bloque).after(card); ultimoDe.set(bloque, card);
+      verificarVideo(id).then((info) => {
+        if (!info.ok) {
+          if (info.noExiste) {   // no existe o no está disponible: se quita el enlace para no recomendarlo
+            const aviso = document.createElement("span");
+            aviso.className = "video-no";
+            aviso.innerHTML = `<s>${escapar(a.textContent.trim())}</s> <em>(⚠️ este video no existe o no está disponible en YouTube: no lo recomiendo)</em>`;
+            a.replaceWith(aviso);
+          }
+          card.remove();
+          return;
+        }
+        // Canal REAL según YouTube; si el texto lo atribuye a otra institución, se advierte
+        const atribuida = ORGS_VIDEO.find((o) => o.re.test(textoCerca));
+        const coincide = !atribuida || atribuida.ok.test(normalizar(info.canal));
+        card.className = "video-yt";
+        card.innerHTML = `<button type="button" class="yt-play" aria-label="Reproducir video: ${escapar(info.titulo)}"><img src="https://i.ytimg.com/vi/${id}/hqdefault.jpg" alt="" loading="lazy"><span class="yt-icono"></span></button>` +
+          `<div class="yt-pie"><strong>${escapar(corto(info.titulo, 110))}</strong>` +
+          `<span class="yt-canal">✅ Verificado en YouTube · Canal: ${info.urlCanal ? `<a href="${escapar(info.urlCanal)}" target="_blank" rel="noopener">${escapar(info.canal)}</a>` : escapar(info.canal)}</span>` +
+          (coincide ? "" : `<span class="yt-alerta">⚠️ La respuesta lo atribuye a «${escapar(atribuida.nombre)}», pero el canal real es «${escapar(info.canal)}». Considéralo una fuente no oficial.</span>`) + `</div>`;
+        card.querySelector(".yt-play").addEventListener("click", () => {
+          card.querySelector(".yt-play").outerHTML = `<div class="yt-marco"><iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&rel=0" title="${escapar(info.titulo)}" ` +
+            `allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>`;
+        });
+      });
     });
+  }
+  // Instituciones que la IA podría mencionar como autoras de un video, y cómo se llaman sus canales oficiales
+  const ORGS_VIDEO = [
+    { re: /\bmineduc\b|ministerio de educacion/, ok: /mineduc|ministerio de educaci/, nombre: "MINEDUC" },
+    { re: /\bcpeip\b/, ok: /cpeip/, nombre: "CPEIP" },
+    { re: /agencia de (la )?calidad/, ok: /agencia.*calidad/, nombre: "Agencia de Calidad de la Educación" },
+    { re: /superintendencia de educacion|supereduc/, ok: /superintendencia|supereduc/, nombre: "Superintendencia de Educación" },
+    { re: /educacion publica|\bdep\b/, ok: /educaci.n p.blica/, nombre: "Educación Pública" },
+    { re: /\bslep\b|servicio local/, ok: /slep|servicio local/, nombre: "SLEP" },
+    { re: /curriculum nacional|curriculumnacional/, ok: /curr.culum/, nombre: "Currículum Nacional" },
+    { re: /\bunesco\b/, ok: /unesco/, nombre: "UNESCO" },
+    { re: /\bunicef\b/, ok: /unicef/, nombre: "UNICEF" },
+    { re: /\bocde\b|\boecd\b/, ok: /ocde|oecd/, nombre: "OCDE" },
+    { re: /biblioteca del congreso|\bbcn\b/, ok: /biblioteca del congreso|bcn/, nombre: "Biblioteca del Congreso Nacional" }
+  ];
+  // Consulta a YouTube el título y el canal reales del video (oEmbed). Se guarda en memoria para no repetir.
+  const cacheVideos = {};
+  function verificarVideo(id) {
+    if (!cacheVideos[id]) {
+      cacheVideos[id] = fetch("https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + id))
+        .then((r) => (r.ok ? r.json().then((d) => ({ ok: true, titulo: d.title || "Video", canal: d.author_name || "Canal no informado", urlCanal: d.author_url || "" }))
+          : { ok: false, noExiste: r.status === 400 || r.status === 404 || r.status === 401 || r.status === 403 }))
+        .catch(() => ({ ok: false, noExiste: false }));   // sin conexión: se deja solo el enlace
+    }
+    return cacheVideos[id];
   }
   function conectarGrafico(g) {
     const b = g.querySelector(".g-ver-datos"); if (!b || b.dataset.ok) return;
@@ -697,13 +769,16 @@
     "(por ejemplo, si escribe la palabra «prompt»).";
   // Formatos visuales que el chat sabe mostrar (gráficos animados, videos, imágenes)
   const INSTRUCCION_VISUALES = "\n\n### Recursos visuales (opcional)\n" +
-    "- Si presentas datos estadísticos REALES (del CONTEXTO o de fuentes oficiales que encontraste, siempre con su fuente), agrégalos además como gráfico con un bloque de código de lenguaje grafico que contenga solo JSON, por ejemplo:\n" +
-    '```grafico\n{"tipo":"barras","titulo":"Matrícula por nivel 2025","etiquetas":["Parvularia","Básica","Media"],"series":[{"nombre":"Estudiantes","datos":[120,540,258]}],"unidad":"","fuente":"Plan Anual Local 2026"}\n```\n' +
+    "- Si presentas datos estadísticos REALES, agrégalos además como gráfico con un bloque de código de lenguaje grafico que contenga solo JSON. " +
+    "Los números deben ser EXACTAMENTE los del CONTEXTO o los de una página que encontraste en la búsqueda; en este último caso agrega \"enlace\" con la dirección exacta de esa página. " +
+    "El chat verifica cada número: si no coincide con el CONTEXTO ni trae enlace, el gráfico no se mostrará. Ejemplo:\n" +
+    '```grafico\n{"tipo":"barras","titulo":"Matrícula 2025","etiquetas":["Escuela A","Escuela B"],"series":[{"nombre":"Estudiantes","datos":[242,918]}],"unidad":"","fuente":"Plan Anual Local 2026","enlace":""}\n```\n' +
     "  Tipos: barras, barras-h (nombres largos o muchas categorías), lineas (evolución en el tiempo), torta o dona (partes de un total), " +
     'cifras (1 a 4 indicadores destacados: {"tipo":"cifras","titulo":"…","cifras":[{"etiqueta":"Asistencia","valor":87.5,"unidad":"%"}],"fuente":"…"}). ' +
     "NUNCA inventes ni estimes cifras para un gráfico: si no tienes datos reales con fuente, no hagas gráficos.\n" +
-    "- Puedes recomendar un video de YouTube solo si tienes su enlace exacto de un canal oficial o confiable (MINEDUC, CPEIP, Agencia de Calidad, UNESCO, universidades) " +
-    "o lo encontraste en la búsqueda: escríbelo como enlace [título del video](https://www.youtube.com/watch?v=ID). El chat lo mostrará para reproducirlo.\n" +
+    "- Videos de YouTube: recomienda uno SOLO si lo encontraste en la búsqueda de esta respuesta (nunca de memoria) y escríbelo como [título del video](https://www.youtube.com/watch?v=ID). " +
+    "Nombra el canal EXACTAMENTE como aparece en YouTube; no digas que es del MINEDUC, CPEIP u otra institución salvo que sea su canal oficial. " +
+    "El chat consulta a YouTube el título y el canal reales: si el video no existe lo quita, y si la atribución no coincide lo advierte. Si no encontraste un video confiable, no recomiendes ninguno.\n" +
     "- Puedes incluir una imagen en una línea propia con ![descripción](https://url-de-la-imagen) solo si la dirección es de una fuente oficial verificada. Si dudas, no la incluyas.";
   const INSTRUCCION_ACLARAR = INSTRUCCION_VISUALES + "\n\n### Cómo responder\n" + REGLA_SIN_PROMPTS + " Si la consulta es ambigua o le falta información clave para responder bien " +
     "(por ejemplo nivel, asignatura, propósito, destinatarios o a qué establecimiento o tema se refiere), NO supongas ni inventes: " +
@@ -749,6 +824,7 @@
     if (!datos.ok) throw new Error(datos.error || "Respuesta no válida");
     const fuentes = buscar(consulta, 3).map((x) => x.ficha);
     const usoWeb = /fuentes externas sugeridas/i.test(datos.respuesta);
+    contextoVigente = contexto;   // para verificar que los números de los gráficos sean reales
     return markdown(datos.respuesta) +
       (fuentes.length ? `<div class="pie-msg">${fuentes.slice(0, 2).map(etiquetaFuente).join("")}</div>` : "") +
       `<div class="nota">${usoWeb
@@ -1329,13 +1405,13 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     if (d.cursos !== null) cifras.push({ etiqueta: "Cursos", valor: d.cursos });
     if (d.pie !== null) cifras.push({ etiqueta: "Estudiantes en PIE (aprox.)", valor: d.pie, unidad: "%" });
     if (d.variacion !== null) cifras.push({ etiqueta: "Variación de matrícula 2020–2026 (proyectada)", valor: d.variacion, unidad: "%" });
-    return cifras.length ? graficoHTML({ tipo: "cifras", titulo: "Datos del establecimiento", cifras, fuente: "Plan Anual Local 2026, SLEP Andalién Sur" }) : "";
+    return cifras.length ? graficoHTML({ tipo: "cifras", titulo: "Datos del establecimiento", cifras, fuente: "Plan Anual Local 2026, SLEP Andalién Sur", _sello: "✅ Datos oficiales del Plan Anual Local" }) : "";
   }
   function graficoMatricula(lista, titulo) {
     const con = lista.map((e) => ({ e, v: datosPAL(e).matricula })).filter((x) => x.v !== null).sort((a, b) => b.v - a.v);
     if (con.length < 2) return "";
     return graficoHTML({ tipo: "barras-h", titulo, etiquetas: con.map((x) => x.e.nombre), series: [{ nombre: "Matrícula 2025", datos: con.map((x) => x.v) }],
-      fuente: "Plan Anual Local 2026, SLEP Andalién Sur" });
+      fuente: "Plan Anual Local 2026, SLEP Andalién Sur", _sello: "✅ Datos oficiales del Plan Anual Local" });
   }
 
   /* Tarjeta "Mi establecimiento" */

@@ -140,7 +140,7 @@ Si los documentos del asistente no responden la consulta, la IA puede buscar en 
 - **Gráficos animados** (SVG propio, sin librerías externas, colores SLEP): barras, barras horizontales, líneas, torta, dona y cifras destacadas. Se animan al aparecer en pantalla y tienen el botón «Ver datos». La IA los genera con un bloque ```grafico con JSON, **solo con datos reales y con su fuente**.
 - **Datos del PAL**: «Ver datos de mi establecimiento» muestra matrícula, cursos, % PIE y variación proyectada; «¿Qué colegios hay en [comuna]?» muestra la matrícula 2025 de cada establecimiento.
 - Toda **tabla con números** ofrece el botón «📊 Ver como gráfico».
-- **Videos de YouTube**: los enlaces a YouTube se muestran como tarjeta con miniatura que se reproduce en el chat (youtube-nocookie). Si el video no existe, la tarjeta no aparece.
+- **Videos de YouTube (verificados)**: el chat consulta a YouTube el título y el **canal real** de cada video (oEmbed). Si el video no existe o no está disponible, lo tacha y avisa; si la respuesta lo atribuye a una institución distinta del canal real, muestra una advertencia. Se reproduce en el chat (youtube-nocookie).
 - **Imágenes**: `![descripción](https://…)` en una línea propia. Si la imagen no carga, se oculta.
 
 ## 6. Registro de cambios
