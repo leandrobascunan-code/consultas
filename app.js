@@ -9,6 +9,8 @@
 
   // Copia intacta de establecimientos.js: el panel puede editar o eliminar colegios de esta base
   const ESTABLECIMIENTOS_BASE = ESTABLECIMIENTOS.map((e) => Object.assign({}, e));
+  // Perfiles de cargo: base de conocimiento.js + los que el equipo edite o agregue en el panel
+  const PERFILES = PERFILES_BASE.map((x) => Object.assign({}, x));
   const $ = (sel) => document.querySelector(sel);
   const el = {
     chat: $("#chat"), mensajes: $("#mensajes"), bienvenida: $("#bienvenida"), elaborado: $("#elaborado"),
@@ -446,11 +448,31 @@
     const est = estDePerfil(p);
     const partes = [];
     if (p.rol && ROLES[p.rol]) partes.push(`Rol de quien consulta: ${ROLES[p.rol].nombre}. Referente principal: ${ROLES[p.rol].marco}.`);
-    if (p.comuna) partes.push(`Trabaja en un establecimiento de educación pública de la comuna de ${p.comuna}` + (p.entorno ? `, entorno ${p.entorno.toLowerCase()}` : "") + ".");
+    // Cargo o función: las actividades deben corresponder a sus funciones y a la normativa que lo rige
+    const cargo = perfilDe(p);
+    if (cargo) partes.push(`Cargo o función: ${cargo.nombre}. Funciones y responsabilidades: ${cargo.texto}` +
+      (cargo.normativa ? ` Normativa que rige este cargo: ${cargo.normativa}.` : "") +
+      " Propón solo actividades que correspondan a estas funciones y a lo que la normativa vigente permite a este cargo; si necesitas más detalle, puedes complementar con descripciones oficiales del cargo.");
+    else if (p.cargo) partes.push(`Cargo o función (descrito por la persona): ${p.cargo}. Considera las funciones habituales de ese cargo según la normativa vigente.`);
+    if (p.alcanceSlep) {
+      const ests = estsSlep(p);
+      if (p.alcanceSlep === "interna") partes.push("Trabaja en la gestión interna del Servicio (no con establecimientos específicos).");
+      else if (ests.length) {
+        const porComuna = {}; ests.forEach((e) => { const c = e.comuna || "sin comuna registrada"; porComuna[c] = (porComuna[c] || 0) + 1; });
+        partes.push(`Trabaja con ${p.alcanceSlep === "todos" ? "todos los establecimientos del Servicio" : p.alcanceSlep === "comuna" ? "los establecimientos de la comuna de " + p.comuna : "estos establecimientos"}` +
+          ` (${ests.length}: ${Object.keys(porComuna).map((c) => c + " " + porComuna[c]).join(", ")}). Considera su diversidad (niveles, entornos, programas como PIE) y propón acciones escalables.`);
+        if (p.alcanceSlep === "elegidos") ests.slice(0, 6).forEach((e, i) => {   // sin nombres: "Establecimiento 1, 2…"
+          const pei = PEI_PARTES.filter(([k]) => e[k] && k !== "historia").map(([k, , t]) => `${t}: ${sinNombre(e[k], e).slice(0, 350)}`).join(" | ");
+          partes.push(`Establecimiento ${i + 1} (${e.comuna || "comuna no registrada"}${e.niveles ? ", " + e.niveles : ""}): ${sinNombre(e.caracteristicas || "", e).slice(0, 300)}${pei ? " PEI — " + pei : ""}`);
+        });
+      }
+    }
+    if (p.comuna && !p.alcanceSlep) partes.push(`Trabaja en un establecimiento de educación pública de la comuna de ${p.comuna}` + (p.entorno ? `, entorno ${p.entorno.toLowerCase()}` : "") + ".");
     if (p.alcance) partes.push(`Quiere trabajar con: ${p.alcance.toLowerCase()}.`);
     if (est && est.caracteristicas) partes.push(`Características del establecimiento (sin identificarlo): ${sinNombre(est.caracteristicas, est)}`);
     const pei = contextoPEI(est); if (pei) partes.push(pei.trim());
-    return partes.length ? `\n\n### Contexto de quien consulta\n${partes.join(" ")} Adapta tus sugerencias a este rol y contexto, sin estereotipos.` : "";
+    return partes.length ? `\n\n### Contexto de quien consulta\n${partes.join(" ")} Adapta tus sugerencias a este rol, cargo y contexto, a la normativa vigente y, cuando exista, ` +
+      "a la misión, visión y sellos del PEI, sin estereotipos." : "";
   }
 
   const REGLA_SIN_PROMPTS = "Responde TÚ directamente con el contenido, la orientación o el material solicitado. " +
@@ -521,7 +543,17 @@
     return perfilSesion;
   }
   function resumenPerfil(p) {
-    return [p.rol && ROLES[p.rol] ? ROLES[p.rol].corto : "", p.establecimiento, p.comuna, p.alcance].filter(Boolean).join(" · ");
+    return [p.rol && ROLES[p.rol] ? ROLES[p.rol].corto : "", p.cargo, p.establecimiento, p.comuna, p.alcance].filter(Boolean).join(" · ");
+  }
+  const perfilDe = (p) => (p && p.cargoId ? PERFILES.find((x) => x.id === p.cargoId) : null);
+  const perfilesDelRol = (rol) => PERFILES.filter((x) => x.rol === rol);
+  // Establecimientos con que trabaja un funcionario del SLEP (todos, una comuna o los elegidos)
+  function estsSlep(p) {
+    if (!p || !p.alcanceSlep) return [];
+    if (p.alcanceSlep === "todos") return ESTABLECIMIENTOS.slice();
+    if (p.alcanceSlep === "comuna") return ESTABLECIMIENTOS.filter((e) => normalizar(e.comuna) === normalizar(p.comuna || ""));
+    if (p.alcanceSlep === "elegidos") return (p.estIds || []).map((id) => ESTABLECIMIENTOS.find((e) => e.id === id)).filter(Boolean);
+    return [];
   }
 
   /* Con quién quiere trabajar, según el rol */
@@ -589,6 +621,55 @@
     switch (paso) {
       case "rol":
         agregar("bot", titulo("¿Cuál es tu rol?") + `<p>Así te mostraré materiales y referentes acordes a tu función.</p>` + chipsRoles());
+        break;
+      case "cargo": {
+        const rol = p.rol;
+        agregar("bot", titulo("¿Cuál describe mejor tu cargo o función?") +
+          `<p>Así mis sugerencias se ajustarán a tus funciones y a la normativa que rige tu cargo.</p>` +
+          chips(perfilesDelRol(rol).map((x) => ({ accion: "wizard", valor: "cargo:" + x.id, etiqueta: x.nombre })), rol === "slep" ? "Área o unidad del Servicio" : "") +
+          chips([{ accion: "wizard", valor: "otro", etiqueta: "✍️ Otro: escribir mi cargo" }, { accion: "wizard", valor: "-", etiqueta: "Prefiero no indicar" }]));
+        break;
+      }
+      case "cargoOtro":
+        agregar("bot", `<p>Escribe tu cargo o función (por ejemplo: <em>"coordinador/a de educación parvularia"</em>). Sin tu nombre.</p>`);
+        break;
+      case "alcanceSlep":
+        agregar("bot", titulo("¿Con qué establecimientos quieres trabajar?") +
+          `<p>Puedes trabajar con todo el Servicio, con una comuna o con los establecimientos que elijas.</p>` +
+          chips([
+            { accion: "wizard", valor: "todos", etiqueta: `🏛️ Todos los establecimientos (${ESTABLECIMIENTOS.length})`, primario: true },
+            { accion: "wizard", valor: "comuna", etiqueta: "📍 Los de una comuna" },
+            { accion: "wizard", valor: "elegidos", etiqueta: "🏫 Elegir uno o más establecimientos" },
+            { accion: "wizard", valor: "interna", etiqueta: "🗂️ Gestión interna del Servicio" }
+          ]));
+        break;
+      case "comunaSlep":
+        agregar("bot", titulo("¿Qué comuna?") + chips(Object.keys(COMUNAS).map((c) => ({ accion: "wizard", valor: c,
+          etiqueta: `${c} (${ESTABLECIMIENTOS.filter((e) => normalizar(e.comuna) === normalizar(c)).length})` }))));
+        break;
+      case "multiEst": {
+        const elegidos = (p.estIds || []).map((id) => ESTABLECIMIENTOS.find((e) => e.id === id)).filter(Boolean);
+        agregar("bot", (elegidos.length
+            ? `<p>✅ Elegidos (${elegidos.length}): <strong>${elegidos.map((e) => escapar(e.nombre)).join(", ")}</strong>.</p><p>Escribe otro nombre, elige una comuna para ver su lista o presiona <strong>Listo</strong>.</p>`
+            : titulo("¿Qué establecimientos?") + `<p>Escribe el nombre de uno (no importa si no recuerdas el nombre exacto) o elige una comuna para ver su lista.</p>`) +
+          chips(Object.keys(COMUNAS).map((c) => ({ accion: "wizard", valor: c, etiqueta: "📍 " + c }))) +
+          (elegidos.length ? chips([{ accion: "wizard", valor: "listo", etiqueta: "✅ Listo", primario: true }]) : ""));
+        break;
+      }
+      case "multiLista": {
+        const ya = new Set(p.estIds || []);
+        const lista = ESTABLECIMIENTOS.filter((e) => normalizar(e.comuna) === normalizar(wizard.comunaLista || "") && !ya.has(e.id))
+          .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+        agregar("bot", `<p>Establecimientos de <strong>${escapar(wizard.comunaLista)}</strong>. Toca los que quieras agregar (uno por vez):</p>` +
+          chips(lista.map((e) => ({ accion: "wizard", valor: "id:" + e.id, etiqueta: e.nombre }))) +
+          chips([{ accion: "wizard", valor: "todos-comuna", etiqueta: `➕ Agregar todos los de ${wizard.comunaLista}` },
+            { accion: "wizard", valor: "listo", etiqueta: "✅ Listo", primario: true }]));
+        break;
+      }
+      case "multiConfirmar":
+        agregar("bot", `<p>No encontré exactamente «${escapar(wizard.buscado)}». ¿Te refieres a ${wizard.opciones.length === 1 ? "este" : "alguno de estos"}?</p>` +
+          chips(wizard.opciones.map((e, i) => ({ accion: "wizard", valor: "id:" + e.id, etiqueta: `${e.nombre}${e.comuna ? " (" + e.comuna + ")" : ""}`, primario: i === 0 }))) +
+          chips([{ accion: "wizard", valor: "otro-nombre", etiqueta: "Ninguno: escribir de nuevo" }]));
         break;
       case "estInicio":
         agregar("bot", titulo("¿En qué establecimiento trabajas?") +
@@ -728,6 +809,7 @@
   /* Usa automáticamente los datos dados al inicio; solo pregunta si faltan */
   function pasoUbicacion() {
     const p = leerPerfil() || {}, d = wizard.datos;
+    if (p.alcanceSlep) { trasUbicacion(); return; }   // nivel central: ya indicó con qué establecimientos trabaja
     if (p.comuna || p.estId || p.establecimiento) {
       d.comuna = p.comuna; d.entorno = p.entorno; d.estId = p.estId;
       trasUbicacion(); return;
@@ -767,8 +849,8 @@
       case "rol": {
         const rol = ROLES[valor] ? valor : Object.keys(ROLES).find((k) => normalizar(ROLES[k].nombre).includes(normalizar(valor)) || normalizar(valor).includes(normalizar(ROLES[k].corto)));
         if (!rol) { agregar("bot", `<p>Elige una de las opciones:</p>` + chipsRoles()); return; }
-        d.rol = rol; guardarPerfil({ rol });
-        if (wizard.soloPerfil) { preguntar("estInicio"); return; }
+        d.rol = rol; guardarPerfil({ rol, cargo: "", cargoId: "", alcanceSlep: "", estIds: [] });
+        if (wizard.soloPerfil) { preguntar(perfilesDelRol(rol).length ? "cargo" : (rol === "slep" ? "alcanceSlep" : "estInicio")); return; }
         const pre = wizard.prefill && wizard.prefill.tipo;
         if (pre && pre.roles.includes(rol)) aplicarTipo(pre); else preguntar("tipo");
         return;
@@ -788,11 +870,57 @@
       case "oa": d.oa = omitido ? "" : valor; pasoUbicacion(); return;
       case "proposito": d.proposito = valor; preguntar("destinatarios"); return;
       case "destinatarios": d.destinatarios = valor; pasoUbicacion(); return;
+      case "cargo": {
+        const siguiente = () => preguntar(p.rol === "slep" ? "alcanceSlep" : "estInicio");
+        if (valor === "otro") { wizard.n--; preguntar("cargoOtro"); return; }
+        if (omitido) { siguiente(); return; }
+        const x = valor.startsWith("cargo:") ? PERFILES.find((c) => c.id === valor.slice(6))
+          : perfilesDelRol(p.rol).find((c) => normalizar(c.nombre).includes(normalizar(valor)));
+        if (x) guardarPerfil({ cargoId: x.id, cargo: x.nombre }); else guardarPerfil({ cargo: valor.slice(0, 120), cargoId: "" });
+        siguiente(); return;
+      }
+      case "cargoOtro":
+        guardarPerfil({ cargo: valor.slice(0, 120), cargoId: "" });
+        preguntar(p.rol === "slep" ? "alcanceSlep" : "estInicio"); return;
+      case "alcanceSlep":
+        if (valor === "todos") { guardarPerfil({ alcanceSlep: "todos", alcance: "Todos los establecimientos del Servicio" }); terminarPerfil(); return; }
+        if (valor === "interna") { guardarPerfil({ alcanceSlep: "interna", alcance: "Gestión interna del Servicio" }); terminarPerfil(); return; }
+        if (valor === "comuna" || COMUNAS[valor]) { if (COMUNAS[valor]) { wizard.paso = "comunaSlep"; avanzarWizard(valor); return; } preguntar("comunaSlep"); return; }
+        guardarPerfil({ alcanceSlep: "elegidos", estIds: [] }); preguntar("multiEst"); return;
+      case "comunaSlep": {
+        const c = Object.keys(COMUNAS).find((k) => normalizar(k) === normalizar(valor));
+        if (!c) { preguntar("comunaSlep"); return; }
+        guardarPerfil({ alcanceSlep: "comuna", comuna: c, alcance: "Establecimientos de " + c }); terminarPerfil(); return;
+      }
+      case "multiEst":
+      case "multiLista":
+      case "multiConfirmar": {
+        const ids = (p.estIds || []).slice();
+        const cerrar = () => {
+          if (!ids.length) { guardarPerfil({ alcanceSlep: "todos", alcance: "Todos los establecimientos del Servicio" }); terminarPerfil(); return; }
+          guardarPerfil({ estIds: ids, alcance: ids.length === 1 ? "1 establecimiento elegido" : ids.length + " establecimientos elegidos" }); terminarPerfil();
+        };
+        const agregarId = (id) => { if (!ids.includes(id)) ids.push(id); guardarPerfil({ estIds: ids }); };
+        if (valor === "listo") { cerrar(); return; }
+        if (valor === "otro-nombre") { wizard.n--; preguntar("multiEst"); return; }
+        if (COMUNAS[valor]) { wizard.comunaLista = valor; wizard.n--; preguntar("multiLista"); return; }
+        if (valor === "todos-comuna") {
+          ESTABLECIMIENTOS.filter((e) => normalizar(e.comuna) === normalizar(wizard.comunaLista || "")).forEach((e) => agregarId(e.id));
+          wizard.n--; preguntar("multiEst"); return;
+        }
+        if (valor.startsWith("id:")) { agregarId(valor.slice(3)); wizard.n--; preguntar(wizard.paso === "multiLista" ? "multiLista" : "multiEst"); return; }
+        // Nombre escrito: búsqueda tolerante a errores
+        const res = buscarEstablecimiento(valor);
+        if (res.length && res[0].puntaje >= 0.97 && (res.length === 1 || res[1].puntaje < 0.9)) { agregarId(res[0].e.id); wizard.n--; preguntar("multiEst"); return; }
+        if (res.length) { wizard.buscado = valor; wizard.opciones = res.map((r) => r.e); wizard.n--; preguntar("multiConfirmar"); return; }
+        agregar("bot", `<p>No encontré «${escapar(valor)}» entre los establecimientos registrados. Escríbelo de otra forma o elige una comuna para ver la lista.</p>`);
+        return;
+      }
       case "estInicio":
         if (COMUNAS[valor]) { d.comuna = valor; guardarPerfil({ comuna: valor }); wizard.n--; preguntar("listaEst"); return; }
         if (valor === "Otra comuna") { wizard.n--; preguntar("otraComuna"); return; }
         if (omitido) { preguntar("alcance"); return; }
-        if (valor === "slep") { guardarPerfil({ establecimiento: "SLEP Andalién Sur (nivel central)", estId: "" }); preguntar("alcance"); return; }
+        if (valor === "slep") { guardarPerfil({ establecimiento: "SLEP Andalién Sur (nivel central)", estId: "" }); preguntar("alcanceSlep"); return; }
         wizard.paso = "establecimiento"; avanzarWizard(valor);   // escribió un nombre: búsqueda tolerante a errores
         return;
       case "alcance":
@@ -1130,9 +1258,18 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     for (let i = CONOCIMIENTO.length - 1; i >= 0; i--) if (CONOCIMIENTO[i].fuente === "SLEP" || CONOCIMIENTO[i].remoto) CONOCIMIENTO.splice(i, 1);
     // Vuelve a la base original antes de aplicar cambios (ediciones y eliminaciones del panel)
     ESTABLECIMIENTOS.splice(0, ESTABLECIMIENTOS.length, ...ESTABLECIMIENTOS_BASE.map((e) => Object.assign({}, e)));
+    PERFILES.splice(0, PERFILES.length, ...PERFILES_BASE.map((x) => Object.assign({}, x)));
     items.forEach((it) => {
-      if (it.eliminado) {   // colegio de base eliminado desde el panel
-        if (it.tipo === "establecimiento") { const k = ESTABLECIMIENTOS.findIndex((e) => e.id === it.id); if (k >= 0) ESTABLECIMIENTOS.splice(k, 1); }
+      if (it.eliminado) {   // colegio o perfil de base eliminado desde el panel
+        const lista = it.tipo === "establecimiento" ? ESTABLECIMIENTOS : it.tipo === "perfil" ? PERFILES : null;
+        if (lista) { const k = lista.findIndex((e) => e.id === it.id); if (k >= 0) lista.splice(k, 1); }
+        return;
+      }
+      if (it.tipo === "perfil") {   // perfil de cargo (funciones del rol)
+        const k = PERFILES.findIndex((x) => x.id === it.id);
+        const perfil = { id: it.id, rol: ROLES[it.categoria] ? it.categoria : (k >= 0 ? PERFILES[k].rol : "slep"), nombre: it.titulo,
+          texto: it.texto || "", normativa: it.claves || (k >= 0 ? PERFILES[k].normativa : ""), enlaces: it.enlaces || "" };
+        if (k >= 0) PERFILES.splice(k, 1, perfil); else PERFILES.push(perfil);
         return;
       }
       const enlaces = String(it.enlaces || "").split("\n").map((l) => l.split("|").map((x) => x.trim())).filter((x) => /^https?:\/\//.test(x[1] || x[0] || ""))
@@ -1203,6 +1340,10 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     asistente: [
       { emoji: "🤝", color: "#d9622b", titulo: "Convivencia educativa: recursos oficiales del MINEDUC", texto: "PNCE, Ley 21.809, reglamentos" },
       { emoji: "🧩", color: "#d9622b", titulo: "Profesionales asistentes de la educación en el PIE", texto: "Roles evaluador, de apoyo y colaborador" }
+    ],
+    slep: [
+      { emoji: "🏛️", color: "#0071ea", titulo: "¿Cómo puede la IA apoyar mis funciones en el Servicio sin usar datos personales?", texto: "Ideas según tu área y la normativa" },
+      { emoji: "📋", color: "#0071ea", titulo: "Ideas para acompañar a los establecimientos según su PEI", texto: "Misión, visión, sellos y contexto" }
     ]
   };
   const SUG_FINAL = [
@@ -1226,7 +1367,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     const caja = $("#perfil"), saludo = $("#saludo");
     if (p.rol || p.comuna) {
       const rol = ROLES[p.rol];
-      caja.innerHTML = `<span class="perfil-ico">${rol ? rol.emoji : "📍"}</span><span><strong>${escapar(p.establecimiento || (rol ? rol.nombre : "Mi perfil"))}</strong><small>${escapar([rol && p.establecimiento ? rol.corto : "", p.comuna, p.alcance].filter(Boolean).join(" · "))} · Cambiar</small></span>`;
+      caja.innerHTML = `<span class="perfil-ico">${rol ? rol.emoji : "📍"}</span><span><strong>${escapar(p.establecimiento || (rol ? rol.nombre : "Mi perfil"))}</strong><small>${escapar([rol && p.establecimiento ? rol.corto : "", p.cargo, p.alcanceSlep === "comuna" ? "" : p.comuna, p.alcance].filter(Boolean).join(" · "))} · Cambiar</small></span>`;
       if (saludo) saludo.textContent = p.establecimiento ? `¡Hola, equipo de ${p.establecimiento}!` : (p.comuna ? `¡Hola, ${p.comuna}! ¿En qué te ayudo?` : "¡Hola! ¿En qué te ayudo hoy?");
     } else {
       caja.innerHTML = `<span class="perfil-ico">📍</span><span><strong>Mi rol y establecimiento</strong><small>Se pregunta al iniciar cada conversación</small></span>`;

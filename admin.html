@@ -146,6 +146,7 @@
       <nav class="tabs" aria-label="Secciones del panel">
         <button data-tab="est" class="activa">🏫 Establecimientos</button>
         <button data-tab="fuentes">📚 Fuentes y documentos</button>
+        <button data-tab="perfiles">👥 Roles y perfiles</button>
         <button data-tab="anadir" class="anadir">➕ Añadir</button>
       </nav>
 
@@ -167,10 +168,18 @@
       </section>
 
       <!-- AÑADIR -->
+      <!-- ROLES Y PERFILES DE CARGO: ver, editar, eliminar -->
+      <section id="tab-perfiles" hidden>
+        <p class="ayuda" style="font-size:.86rem;margin:0 0 12px">Describe las funciones de cada cargo para que el asistente proponga actividades acordes al perfil y a la normativa vigente. Las descripciones de base son referencias generales: ajústelas a la realidad del Servicio o agregue cargos nuevos en <strong>➕ Añadir</strong>.</p>
+        <div class="herr"><input type="text" id="buscarPerfil" placeholder="🔍 Buscar cargo o función…"></div>
+        <div id="listaPerfiles"><p class="vacio">Cargando…</p></div>
+      </section>
+
       <section id="tab-anadir" hidden>
         <div class="opciones-anadir" id="opcionesAnadir">
           <button data-nuevo="establecimiento" style="--c:#4fa61a" class="activo"><strong>🏫 Establecimiento</strong><span>Un colegio, liceo o jardín nuevo</span></button>
           <button data-nuevo="documento" style="--c:#e0559b"><strong>📄 Documento o enlace</strong><span>Aparece en la Biblioteca y el chat lo usa</span></button>
+          <button data-nuevo="perfil" style="--c:#5b4bd1"><strong>👥 Perfil de cargo</strong><span>Funciones de un rol (incl. áreas del SLEP)</span></button>
           <button data-nuevo="info" style="--c:#0071ea"><strong>ℹ️ Información del Servicio</strong><span>Avisos, orientaciones o acuerdos</span></button>
           <button data-nuevo="masivo" style="--c:#f0a500"><strong>📥 Varios establecimientos</strong><span>Carga masiva desde el PAL</span></button>
         </div>
@@ -188,6 +197,7 @@
   <script src="config.js"></script>
   <script src="establecimientos.js"></script>
   <script src="documentos.js"></script>
+  <script src="conocimiento.js"></script>
   <script>
   (function () {
     "use strict";
@@ -296,17 +306,34 @@
         categoria: it.categoria || "servicio", texto: it.texto, enlaces: it.enlaces, claves: it.claves, estado: it.activo ? "nuevo" : "oculto", item: it }));
       return lista;
     }
+    // Perfiles de cargo: base (conocimiento.js) + panel. categoria = rol, claves = normativa
+    function perfiles() {
+      const panel = items.filter((i) => i.tipo === "perfil");
+      const usados = new Set();
+      const lista = PERFILES_BASE.map((b) => {
+        const it = panel.find((i) => i.id === b.id);
+        const o = { id: b.id, titulo: b.nombre, rolPerfil: b.rol, texto: b.texto, normativa: b.normativa, enlaces: "", base: b, estado: "original" };
+        if (!it) return o;
+        usados.add(it.id);
+        if (!it.activo) return Object.assign(o, { estado: "eliminado", item: it });
+        return Object.assign(o, { titulo: it.titulo, rolPerfil: it.categoria || b.rol, texto: it.texto, normativa: it.claves, enlaces: it.enlaces, estado: "editado", item: it });
+      });
+      panel.filter((i) => !usados.has(i.id)).forEach((it) => lista.push({ id: it.id, titulo: it.titulo, rolPerfil: it.categoria || "slep", texto: it.texto,
+        normativa: it.claves, enlaces: it.enlaces, estado: it.activo ? "nuevo" : "oculto", item: it }));
+      return lista;
+    }
     const informaciones = () => items.filter((i) => i.tipo === "info" || i.tipo === "enlace")
       .map((it) => ({ id: it.id, titulo: it.titulo, texto: it.texto, enlaces: it.enlaces, claves: it.claves, estado: it.activo ? "nuevo" : "oculto", item: it }));
 
     /* ---------- Pintar ---------- */
-    function pintarTodo() { pintarResumen(); pintarChips(); pintarEst(); pintarFuentes(); if (!$("#cajaAnadir").innerHTML) mostrarAnadir(tipoNuevo); }
+    function pintarTodo() { pintarResumen(); pintarChips(); pintarEst(); pintarFuentes(); pintarPerfiles(); if (!$("#cajaAnadir").innerHTML) mostrarAnadir(tipoNuevo); }
 
     function pintarResumen() {
       const ests = establecimientos().filter((e) => e.estado !== "eliminado" && e.estado !== "oculto");
       const docs = documentos().filter((d) => d.estado !== "eliminado" && d.estado !== "oculto");
       const cifras = COMUNAS.map((c) => ({ n: ests.filter((e) => e.comuna === c).length, t: c, c: COLOR_COMUNA[c] }))
-        .concat([{ n: docs.length, t: "Documentos en la Biblioteca", c: "#e0559b" }, { n: informaciones().filter((i) => i.estado !== "oculto").length, t: "Informaciones del Servicio", c: "#5b4bd1" }]);
+        .concat([{ n: docs.length, t: "Documentos en la Biblioteca", c: "#e0559b" }, { n: informaciones().filter((i) => i.estado !== "oculto").length, t: "Informaciones del Servicio", c: "#5b4bd1" },
+          { n: perfiles().filter((o) => o.estado !== "eliminado" && o.estado !== "oculto").length, t: "Perfiles de cargo", c: "#0b8f6a" }]);
       $("#resumen").innerHTML = `<div class="cifra" style="--c:#1d2633"><strong>${ests.length}</strong><span>Establecimientos en total</span></div>` +
         cifras.map((x) => `<div class="cifra" style="--c:${x.c}"><strong>${x.n}</strong><span>${esc(x.t)}</span></div>`).join("");
     }
@@ -374,6 +401,23 @@
           : `<p class="vacio">Aún no hay información del Servicio. Puede agregarla en la pestaña <strong>➕ Añadir</strong>.</p>`);
     }
 
+    const COLOR_ROL = { docente: "#0b8f6a", directivo: "#5b4bd1", asistente: "#d9622b", slep: "#0071ea" };
+    function pintarPerfiles() {
+      const q = norm($("#buscarPerfil").value);
+      const todos = perfiles().filter((o) => !q || norm([o.titulo, o.texto, o.normativa].join(" ")).includes(q));
+      const html = Object.keys(ROLES).map((r) => {
+        const lista = todos.filter((o) => (ROLES[o.rolPerfil] ? o.rolPerfil : "slep") === r);
+        if (!lista.length) return "";
+        return `<details class="grupo" open style="--c:${COLOR_ROL[r] || "#0071ea"}"><summary>${ROLES[r].emoji} ${esc(ROLES[r].nombre)} <span class="n">${lista.filter((o) => o.estado !== "eliminado").length}</span></summary>
+          <div class="fichas">${lista.map((o) => `
+            <div class="ficha ${o.estado === "eliminado" ? "eliminado" : ""}">
+              <div class="info"><strong>${esc(o.titulo)}</strong>${sello(o.estado)}
+                ${o.normativa ? `<small>⚖️ ${esc(o.normativa)}</small>` : ""}${textoLargo(o.texto)}</div>${botonesDe(o, "perfil")}
+            </div>`).join("")}</div></details>`;
+      }).join("");
+      $("#listaPerfiles").innerHTML = html || `<p class="vacio">No encontré cargos con ese criterio.</p>`;
+    }
+
     /* ---------- Formularios (los mismos para añadir y editar) ---------- */
     const opcionesCat = (sel) => Object.keys(CATEGORIAS_DOC).map((c) => `<option value="${c}" ${c === sel ? "selected" : ""}>${CATEGORIAS_DOC[c].emoji} ${esc(CATEGORIAS_DOC[c].nombre)}</option>`).join("");
     function formulario(tipo, v) {
@@ -417,6 +461,20 @@
           <label>Enlaces (uno por línea: Título | https://... — el primero es el principal)</label><textarea name="enlaces" maxlength="3000" style="min-height:70px" placeholder="Sitio oficial | https://www.mineduc.cl/...">${esc(v.enlaces)}</textarea>
           <label>Palabras clave para el chat (separadas por coma)</label><input type="text" name="claves" maxlength="500" value="${esc(v.claves)}">
           ${pie}</form>`;
+      if (tipo === "perfil") return `
+        <form data-form="perfil" data-id="${esc(v.id || "")}">
+          <div class="fila">
+            <div><label>Rol al que pertenece</label><select name="categoria">${Object.keys(ROLES).map((r) => `<option value="${r}" ${r === (v.rolPerfil || "slep") ? "selected" : ""}>${ROLES[r].emoji} ${esc(ROLES[r].nombre)}</option>`).join("")}</select></div>
+            <div><label>Nombre del cargo, área o función</label><input type="text" name="titulo" maxlength="200" required value="${esc(v.titulo)}" placeholder="Ej.: Encargado/a de compras públicas"></div>
+          </div>
+          <label>Funciones y responsabilidades</label>
+          <textarea name="texto" maxlength="8000" placeholder="Qué hace este cargo: funciones principales, tareas habituales, con quién se coordina, qué decisiones toma y cuáles no le corresponden.">${esc(v.texto)}</textarea>
+          <label>Normativa y referentes que rigen el cargo</label>
+          <textarea name="claves" maxlength="500" style="min-height:60px" placeholder="Ej.: Ley N° 21.040, Ley N° 19.886, Ley N° 21.719">${esc(v.normativa)}</textarea>
+          <label>Enlaces (opcional: descripción oficial del cargo, normativa — Título | https://...)</label>
+          <textarea name="enlaces" maxlength="3000" style="min-height:60px">${esc(v.enlaces)}</textarea>
+          <p class="ayuda">Al iniciar el chat, la persona elige su cargo y el asistente ajusta sus sugerencias a estas funciones y a la normativa indicada.</p>
+          ${pie}</form>`;
       if (tipo === "info") return `
         <form data-form="info" data-id="${esc(v.id || "")}">
           <label>Título</label><input type="text" name="titulo" maxlength="200" required value="${esc(v.titulo)}">
@@ -452,12 +510,12 @@
     function mostrarAnadir(tipo) {
       tipoNuevo = tipo;
       document.querySelectorAll("#opcionesAnadir button").forEach((b) => b.classList.toggle("activo", b.dataset.nuevo === tipo));
-      const titulos = { establecimiento: "🏫 Nuevo establecimiento", documento: "📄 Nuevo documento o enlace", info: "ℹ️ Nueva información del Servicio" };
+      const titulos = { perfil: "👥 Nuevo perfil de cargo", establecimiento: "🏫 Nuevo establecimiento", documento: "📄 Nuevo documento o enlace", info: "ℹ️ Nueva información del Servicio" };
       $("#cajaAnadir").innerHTML = (titulos[tipo] ? `<h2>${titulos[tipo]}</h2>` : "") + formulario(tipo, { comuna: comunaFiltro && comunaFiltro !== "sin" ? comunaFiltro : "" });
     }
 
     /* ---------- Acciones de las fichas ---------- */
-    const buscarObj = (tipo, id) => (tipo === "establecimiento" ? establecimientos() : tipo === "documento" ? documentos() : informaciones()).find((o) => o.id === id);
+    const buscarObj = (tipo, id) => (tipo === "establecimiento" ? establecimientos() : tipo === "documento" ? documentos() : tipo === "perfil" ? perfiles() : informaciones()).find((o) => o.id === id);
     async function accion(acc, tipo, id) {
       const o = buscarObj(tipo, id); if (!o) return;
       const nombre = o.nombre || o.titulo;
@@ -508,11 +566,12 @@
     document.querySelector(".tabs").addEventListener("click", (e) => {
       const b = e.target.closest("button"); if (!b) return;
       document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("activa", x === b));
-      ["est", "fuentes", "anadir"].forEach((t) => { $("#tab-" + t).hidden = t !== b.dataset.tab; });
+      ["est", "fuentes", "perfiles", "anadir"].forEach((t) => { $("#tab-" + t).hidden = t !== b.dataset.tab; });
     });
     $("#chipsComuna").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; comunaFiltro = b.dataset.comuna; pintarChips(); pintarEst(); });
     $("#buscarEst").addEventListener("input", pintarEst);
     $("#buscarFuente").addEventListener("input", pintarFuentes);
+    $("#buscarPerfil").addEventListener("input", pintarPerfiles);
     $("#opcionesAnadir").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) mostrarAnadir(b.dataset.nuevo); });
     document.addEventListener("click", (e) => {
       const b = e.target.closest("[data-acc]"); if (b) return accion(b.dataset.acc, b.dataset.tipo, b.dataset.id);
