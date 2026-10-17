@@ -145,12 +145,13 @@ Si los documentos del asistente no responden la consulta, la IA puede buscar en 
 
 ## 5e. Compartir y descargar en PDF
 
-- Bajo cada respuesta con contenido aparecen los botones **📄 PDF**, **WhatsApp**, **✉️ Correo**, **📋 Copiar** y, en celulares, **↗️ Más** (menú para compartir del teléfono).
-- **WhatsApp y correo** abren la aplicación con el texto ordenado (títulos, listas, datos de los gráficos y enlaces) para que la persona elija el destinatario. Si el texto es muy largo se resume y se sugiere enviar el PDF.
-- También se puede escribir en el chat «envíalo por WhatsApp», «mándalo por correo» o «descárgalo en PDF».
-- **PDF:** documento formal en tamaño A4 con membrete del SLEP, título, fecha, rol/cargo, la consulta, el contenido (con gráficos y tablas), fuentes consultadas, nota sobre el uso de IA y número de página. Se guarda con «Guardar como PDF» en la ventana de impresión (en iPhone: Compartir → Imprimir → Guardar).
-- **Gráficos a pedido:** si la persona entrega sus datos y pide un gráfico, la IA lo diseña con esos números (sello «Gráfico elaborado con los datos que entregaste»). Cada gráfico permite cambiar el tipo (barras, horizontales, líneas, dona).
-
+- Bajo cada respuesta con contenido: **📄 PDF**, **WhatsApp**, **✉️ Correo**, **📋 Copiar** y (en celulares) **↗️ Más**.
+- PDF, WhatsApp, Correo y Más abren una **vista previa dentro de la app** (no abre otra pestaña): se cierra con **✕ Cerrar**, con la tecla Esc o con el botón «atrás» del teléfono.
+- En la vista previa se genera un **PDF real** (A4, membrete del SLEP, fecha, rol/cargo, consulta, contenido con gráficos y tablas, fuentes, nota de uso de IA y número de página) con la librería html2pdf.js (se descarga de cdnjs solo al usarla).
+- **WhatsApp / Más:** abre el menú para compartir del teléfono **con el PDF adjunto** (se elige WhatsApp, Gmail, etc.). En computadores sin esa opción, el PDF se descarga y se abre WhatsApp para adjuntarlo.
+- **Correo desde la app:** formulario con Para (hasta 5), Asunto, Mensaje y correo para respuestas; el Apps Script (groq-9) lo envía con el PDF adjunto desde la cuenta del Servicio. Límite diario `LIMITE_CORREOS` (60 por defecto) y dominios permitidos opcionales `DOMINIOS_CORREO` (ej. `andaliensur.cl`). Requiere ejecutar una vez `autorizarCorreo` (o `configurarContenido`) para dar el permiso de envío. Alternativa: «Usar mi app de correo».
+- Si no hay conexión para crear el PDF, el botón 🖨️ imprime solo el documento («Guardar como PDF»).
+- **Gráficos a pedido:** si la persona entrega sus datos y pide un gráfico, la IA lo diseña con esos números (sello «Gráfico elaborado con los datos que entregaste»). «Gráfico de matrícula de [comuna]» se responde directo con el PAL. Cada gráfico permite cambiar el tipo (barras, horizontales, líneas, dona).
 ## 6. Registro de cambios
 
 | Fecha | Cambio | Responsable |

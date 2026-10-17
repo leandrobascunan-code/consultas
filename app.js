@@ -73,7 +73,8 @@
         const buf = []; i++;
         while (i < lineas.length && !/^```/.test(lineas[i].trim())) buf.push(lineas[i++]);
         i++;
-        if (/^(grafico|gráfico|chart|grafica)$/i.test(lenguaje)) {   // datos → gráfico animado
+        const pareceGrafico = /^json$/i.test(lenguaje) && /"(series|datasets|cifras)"\s*:/.test(desescapar(buf.join(" ")));
+        if (/^(grafico|gráfico|chart|grafica|gráfica)$/i.test(lenguaje) || pareceGrafico) {   // datos → gráfico animado
           const g = graficoDesdeTexto(buf.join("\n"));
           if (g) { html += g; continue; }
         }
@@ -163,7 +164,7 @@
   }
   function graficoDesdeTexto(txt) {
     let spec;
-    try { spec = JSON.parse(desescapar(txt)); } catch (e) { console.warn("Gráfico no válido:", e.message); return ""; }
+    try { spec = normalizarSpec(JSON.parse(desescapar(txt))); } catch (e) { console.warn("Gráfico no válido:", e.message); return ""; }
     const v = verificarDatos(spec, contextoVigente);
     if (v.estado === "sin-fuente") {
       return `<div class="nota grafico-rechazado">📊 No muestro este gráfico porque sus datos no tienen una fuente verificable: no coinciden con la información del asistente ni indican el enlace de donde provienen.</div>`;
@@ -175,8 +176,22 @@
     return graficoHTML(spec);
   }
   // spec: { tipo, titulo, etiquetas, series:[{nombre, datos}], unidad, fuente }  ·  tipo "cifras": { cifras:[{etiqueta, valor, unidad}] }
+  // Acepta también el formato habitual de otras herramientas (labels/datasets/type/title)
+  function normalizarSpec(s) {
+    if (!s || typeof s !== "object") return s;
+    const o = Object.assign({}, s);
+    if (!o.tipo && o.type) o.tipo = { bar: "barras", horizontalBar: "barras-h", line: "lineas", pie: "torta", doughnut: "dona" }[o.type] || o.type;
+    if (!o.titulo && (o.title || o.options?.plugins?.title?.text)) o.titulo = o.title || o.options.plugins.title.text;
+    const datos = o.data && typeof o.data === "object" && !Array.isArray(o.data) ? o.data : o;
+    if (!o.etiquetas && datos.labels) o.etiquetas = datos.labels;
+    if (!o.series && datos.datasets) o.series = datos.datasets.map((d) => ({ nombre: d.label || d.nombre || "", datos: d.data || d.datos || [] }));
+    if (!o.fuente && o.source) o.fuente = o.source;
+    if (!o.unidad && (o.unit || (o.series && o.series[0] && o.series[0].unidad))) o.unidad = o.unit || o.series[0].unidad;
+    return o;
+  }
   function graficoHTML(spec) {
     if (!spec || typeof spec !== "object") return "";
+    spec = normalizarSpec(spec);
     const u = spec.unidad || "";
     let tipo = String(spec.tipo || "barras").toLowerCase().replace("gráfico de ", "").replace(/\s+/g, "-");
     tipo = { bar: "barras", barra: "barras", columnas: "barras", horizontal: "barras-h", line: "lineas", linea: "lineas", líneas: "lineas", pie: "torta",
@@ -821,7 +836,8 @@
     "NUNCA inventes ni estimes cifras para un gráfico: si no tienes datos reales con fuente, no hagas gráficos.\n" +
     "- Si la persona PIDE un gráfico, diséñalo: elige el tipo que mejor comunica la idea, escribe un \"titulo\" claro y un \"subtitulo\" breve (qué muestra, período, unidad), " +
     "etiquetas cortas y en orden lógico (tiempo en orden cronológico; categorías de mayor a menor) y explica en 2 o 3 frases qué muestra. " +
-    "Si te entrega sus datos, usa exactamente esos números (fuente: \"Datos entregados por quien consulta\"). Si no hay datos en su mensaje ni en el CONTEXTO, pídeselos antes de graficar.\n" +
+    "Si te entrega sus datos, usa exactamente esos números (fuente: \"Datos entregados por quien consulta\") y no agregues años, períodos ni datos que no indicó. " +
+    "Si no hay datos en su mensaje ni en el CONTEXTO, pídeselos antes de graficar.\n" +
     "- Videos de YouTube: recomienda uno SOLO si lo encontraste en la búsqueda de esta respuesta (nunca de memoria) y escríbelo como [título del video](https://www.youtube.com/watch?v=ID). " +
     "Nombra el canal EXACTAMENTE como aparece en YouTube; no digas que es del MINEDUC, CPEIP u otra institución salvo que sea su canal oficial. " +
     "El chat consulta a YouTube el título y el canal reales: si el video no existe lo quita, y si la atribución no coincide lo advierte. Si no encontraste un video confiable, no recomiendes ninguno.\n" +
@@ -1640,6 +1656,17 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     if (RE_PERFIL.test(n)) { iniciarWizard(true); return; }
     if (RE_MIEST.test(n)) { agregar("bot", respuestaMiEstablecimiento()); return; }
     // "¿Qué establecimientos hay en Florida?": lista exacta desde el PAL (sin pasar por la IA)
+    // "Gráfico de matrícula de Florida": se responde con los datos oficiales del PAL (sin pasar por la IA)
+    if (/\bgrafic|\bgraf\b|\bchart\b/.test(n) && /\bmatricula/.test(n)) {
+      const com = Object.keys(COMUNAS).find((c) => n.includes(normalizar(c)));
+      const p = leerPerfil() || {};
+      const lista = com ? ESTABLECIMIENTOS.filter((e) => normalizar(e.comuna) === normalizar(com)) : (p.alcanceSlep ? estsSlep(p) : ESTABLECIMIENTOS);
+      const g = graficoMatricula(lista, `Matrícula 2025 · ${com || (p.alcanceSlep === "elegidos" ? "establecimientos elegidos" : p.alcanceSlep === "comuna" ? p.comuna : "SLEP Andalién Sur")}`);
+      if (g) {
+        agregar("bot", `<p>Este es el gráfico con la <strong>matrícula 2025</strong> según el Plan Anual Local. Puedes cambiar el tipo de gráfico con los botones de arriba o descargarlo en PDF.</p>${g}`);
+        return;
+      }
+    }
     const pideLista = n.match(/\b(establecimientos|colegios|escuelas|liceos|jardines|salas cuna)\b.*\b(concepcion|chiguayante|florida|hualqui)\b/);
     if (pideLista && /\b(que|cuales|cuantos|cuantas|lista|listado|hay|nombres)\b/.test(n)) {
       const comuna = Object.keys(COMUNAS).find((c) => normalizar(c) === pideLista[2]);
@@ -1816,8 +1843,55 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     try { await navigator.share({ title: tituloMsg(msg), text: textoParaEnviar(msg, false, 6000) }); } catch (e) { /* cancelado */ }
   }
 
-  /* PDF: documento formal (membrete, datos, contenido ordenado y pie) que se guarda con «Guardar como PDF» */
-  function documentoPDF(msg) {
+  /* PDF: documento formal (membrete, datos, contenido ordenado, fuentes y nota de uso de IA).
+     Se muestra como VISTA PREVIA dentro de la app (se cierra con ✕ o con «atrás»), se convierte en un
+     PDF real (html2pdf.js, cargado solo cuando se usa) y se puede descargar o compartir como archivo. */
+  const CSS_DOC = `
+  .pdf-hoja { width: 186mm; background: #fff; color: #1d2633; font: 10.5pt/1.55 'Plus Jakarta Sans', system-ui, sans-serif; padding: 0; box-sizing: border-box; text-align: left;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .pdf-hoja * { box-sizing: border-box; }
+  .pdf-hoja .doc-cab { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; position: relative; }
+  .pdf-hoja .doc-cab::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 4px;
+    background: linear-gradient(90deg, #0071ea 0 20%, #3abff0 20% 40%, #90d039 40% 60%, #f8d63c 60% 80%, #ff3c4c 80% 100%); }
+  .pdf-hoja .doc-cab img { height: 50px; width: auto; }
+  .pdf-hoja .doc-cab strong { display: block; font-size: 11.5pt; color: #0b2a55; }
+  .pdf-hoja .doc-cab span { font-size: 8.5pt; color: #5a6678; }
+  .pdf-hoja h1.doc-titulo { color: #0071ea; font-size: 19pt; line-height: 1.2; margin: 18px 0 10px; }
+  .pdf-hoja table.doc-meta { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 9pt; }
+  .pdf-hoja table.doc-meta th { text-align: left; width: 28%; color: #5a6678; font-weight: 700; padding: 4px 8px; background: #f3f7fd; border: 1px solid #e2e9f3; }
+  .pdf-hoja table.doc-meta td { padding: 4px 8px; border: 1px solid #e2e9f3; }
+  .pdf-hoja .doc-consulta { background: #eef7ff; border-left: 4px solid #3abff0; border-radius: 8px; padding: 9px 13px; margin: 0 0 16px; font-size: 10pt; }
+  .pdf-hoja .doc-cuerpo { background: none !important; box-shadow: none !important; padding: 0 !important; border: 0 !important; max-width: none !important; color: #1d2633; }
+  .pdf-hoja .doc-cuerpo h3 { font-size: 13pt; color: #0b2a55; margin: 16px 0 6px; }
+  .pdf-hoja .doc-cuerpo h4.titulo-sec { break-after: avoid; page-break-after: avoid; }
+  .pdf-hoja .doc-cuerpo p, .pdf-hoja .doc-cuerpo li { orphans: 3; widows: 3; }
+  .pdf-hoja .doc-cuerpo table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 9.5pt; }
+  .pdf-hoja .doc-cuerpo th { background: #0071ea; color: #fff; text-align: left; padding: 6px 8px; }
+  .pdf-hoja .doc-cuerpo td { border: 1px solid #dfe6f0; padding: 5px 8px; }
+  .pdf-hoja .doc-cuerpo tr:nth-child(even) td { background: #f7faff; }
+  .pdf-hoja .doc-cuerpo .grafico, .pdf-hoja .doc-cuerpo .pei-bloque, .pdf-hoja .doc-cuerpo .nota, .pdf-hoja .doc-cuerpo .bloque-codigo, .pdf-hoja .doc-cuerpo tr { break-inside: avoid; page-break-inside: avoid; }
+  .pdf-hoja .doc-cuerpo .grafico { box-shadow: none; background: #fff; }
+  .pdf-hoja .doc-cuerpo .g-barra, .pdf-hoja .doc-cuerpo .g-cifra, .pdf-hoja .doc-cuerpo .g-punto { transform: none !important; opacity: 1 !important; transition: none !important; }
+  .pdf-hoja .doc-cuerpo .g-val, .pdf-hoja .doc-cuerpo .g-area { opacity: 1 !important; transition: none !important; }
+  .pdf-hoja .doc-cuerpo .g-linea { stroke-dashoffset: 0 !important; transition: none !important; }
+  .pdf-hoja .doc-cuerpo .g-seg { transition: none !important; }
+  .pdf-hoja .doc-cuerpo a { color: #0071ea; word-break: break-all; }
+  .pdf-hoja .doc-cuerpo a.ref-oficial::after { content: ""; }
+  .pdf-hoja .doc-cuerpo pre { white-space: pre-wrap; }
+  .pdf-hoja .pdf-fuentes { font-size: 9pt; color: #5a6678; border-top: 1px solid #e2e9f3; padding-top: 6px; margin-top: 14px; }
+  .pdf-hoja .pdf-video { font-size: 9.5pt; }
+  /* Sin color-mix(): la librería que crea el PDF no lo reconoce */
+  .pdf-hoja .ico-sec { background: var(--c) !important; box-shadow: none !important; }
+  .pdf-hoja .g-cifra { background: #fff !important; }
+  .pdf-hoja .doc-cuerpo tr:nth-child(odd) td { background: #fff !important; }
+  .pdf-hoja .bloque-codigo pre { border: 1px solid #f3dc7a !important; border-left: 5px solid #f8d63c !important; }
+  .pdf-hoja .fuente { background: #eef4fb !important; }
+  .pdf-hoja .g-svg-circ, .pdf-hoja .g-barra, .pdf-hoja .g-linea { filter: none !important; }
+  .pdf-hoja .grafico { background: #fff !important; }
+  .pdf-hoja .doc-aviso { margin-top: 20px; padding: 10px 13px; border: 1px solid #e2e9f3; border-radius: 10px; background: #fbfcfe; font-size: 8.5pt; color: #5a6678; break-inside: avoid; page-break-inside: avoid; }`;
+
+  // Arma el contenido del documento a partir de una respuesta del chat
+  function partesDoc(msg) {
     const c = contenidoMsg(msg);
     c.querySelectorAll(".grafico").forEach((g) => {   // gráficos en su estado final
       g.classList.add("animado");
@@ -1839,84 +1913,230 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       pm.replaceWith(q);
     });
     const titulo = tituloMsg(msg), pregunta = preguntaDe(msg), p = leerPerfil() || {};
-    const fecha = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
-    const base = new URL(".", location.href).href;
+    const ahora = new Date(), fecha = ahora.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const filaMeta = (k, v) => (v ? `<tr><th>${k}</th><td>${escapar(v)}</td></tr>` : "");
-    return `<!DOCTYPE html><html lang="es" data-theme="light"><head><meta charset="UTF-8"><base href="${base}"><title>${escapar(titulo)}</title>
-<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="estilos.css">
-<style>
-  @page { size: A4; margin: 16mm 15mm 20mm; @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 8pt 'Plus Jakarta Sans', sans-serif; color: #7a8696; } }
-  html, body { background: #fff !important; height: auto !important; overflow: visible !important; display: block !important; }
-  body { margin: 0; color: #1d2633; font: 10.5pt/1.55 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  .doc-cab { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; position: relative; }
-  .doc-cab::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 4px;
-    background: linear-gradient(90deg, #0071ea 0 20%, #3abff0 20% 40%, #90d039 40% 60%, #f8d63c 60% 80%, #ff3c4c 80% 100%); }
-  .doc-cab img { height: 50px; width: auto; }
-  .doc-cab strong { display: block; font-size: 11.5pt; color: #0b2a55; }
-  .doc-cab span { font-size: 8.5pt; color: #5a6678; }
-  h1.doc-titulo { color: #0071ea; font-size: 19pt; line-height: 1.2; margin: 18px 0 10px; }
-  table.doc-meta { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 9pt; }
-  table.doc-meta th { text-align: left; width: 28%; color: #5a6678; font-weight: 700; padding: 4px 8px; background: #f3f7fd; border: 1px solid #e2e9f3; }
-  table.doc-meta td { padding: 4px 8px; border: 1px solid #e2e9f3; }
-  .doc-consulta { background: #eef7ff; border-left: 4px solid #3abff0; border-radius: 8px; padding: 9px 13px; margin: 0 0 16px; font-size: 10pt; }
-  .doc-cuerpo { background: none !important; box-shadow: none !important; padding: 0 !important; border: 0 !important; max-width: none !important; }
-  .doc-cuerpo h3 { font-size: 13pt; color: #0b2a55; margin: 16px 0 6px; }
-  .doc-cuerpo h4.titulo-sec { break-after: avoid; }
-  .doc-cuerpo p, .doc-cuerpo li { orphans: 3; widows: 3; }
-  .doc-cuerpo table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 9.5pt; break-inside: avoid; }
-  .doc-cuerpo th { background: #0071ea; color: #fff; text-align: left; padding: 6px 8px; }
-  .doc-cuerpo td { border: 1px solid #dfe6f0; padding: 5px 8px; }
-  .doc-cuerpo tr:nth-child(even) td { background: #f7faff; }
-  .doc-cuerpo .grafico, .doc-cuerpo .pei-bloque, .doc-cuerpo .nota, .doc-cuerpo .bloque-codigo { break-inside: avoid; }
-  .doc-cuerpo .grafico { box-shadow: none; background: #fff; }
-  .doc-cuerpo .g-barra, .doc-cuerpo .g-cifra, .doc-cuerpo .g-punto { transform: none !important; opacity: 1 !important; transition: none !important; }
-  .doc-cuerpo .g-val, .doc-cuerpo .g-area { opacity: 1 !important; transition: none !important; }
-  .doc-cuerpo .g-linea { stroke-dashoffset: 0 !important; transition: none !important; }
-  .doc-cuerpo .g-seg { transition: none !important; }
-  .doc-cuerpo a { color: #0071ea; word-break: break-all; }
-  .doc-cuerpo a.ref-oficial::after { content: ""; }
-  .doc-cuerpo pre { white-space: pre-wrap; }
-  .pdf-fuentes { font-size: 9pt; color: #5a6678; border-top: 1px solid #e2e9f3; padding-top: 6px; margin-top: 14px; }
-  .pdf-video { font-size: 9.5pt; }
-  .doc-aviso { margin-top: 20px; padding: 10px 13px; border: 1px solid #e2e9f3; border-radius: 10px; background: #fbfcfe; font-size: 8.5pt; color: #5a6678; break-inside: avoid; }
-  .doc-pie { position: fixed; bottom: -12mm; left: 0; right: 0; font-size: 8pt; color: #7a8696; border-top: 1px solid #e2e9f3; padding-top: 4px; }
-  @media screen { body { max-width: 190mm; margin: 0 auto; padding: 14mm 12mm; box-shadow: 0 0 20px rgba(0,0,0,.12); } .doc-pie { position: static; margin-top: 18px; } }
-</style></head><body>
-<header class="doc-cab"><img src="logo-slep.png" alt="SLEP Andalién Sur"><div><strong>Servicio Local de Educación Pública Andalién Sur</strong><span>Asistente IA Educativa · Documento de trabajo</span></div></header>
-<h1 class="doc-titulo">${escapar(titulo)}</h1>
-<table class="doc-meta">${filaMeta("Fecha", fecha)}${filaMeta("Elaborado para", [p.rol && ROLES[p.rol] ? ROLES[p.rol].nombre : "", p.cargo].filter(Boolean).join(" · "))}${filaMeta("Establecimiento o alcance", [p.establecimiento, p.alcance].filter(Boolean).join(" · "))}</table>
-${pregunta ? `<div class="doc-consulta"><strong>Consulta:</strong> ${escapar(pregunta)}</div>` : ""}
-<main class="burbuja doc-cuerpo">${c.innerHTML}</main>
-<section class="doc-aviso"><strong>Nota:</strong> documento elaborado con apoyo de inteligencia artificial mediante el Asistente IA Educativa del SLEP Andalién Sur. Su contenido es una propuesta que debe ser revisada por la persona responsable antes de usarse; verifique datos, normativa y fuentes. No incluye datos personales de estudiantes, familias ni funcionarios (Ley N° 21.719).</section>
-<footer class="doc-pie">SLEP Andalién Sur · Asistente IA Educativa · ${escapar(fecha)}</footer>
-<script>
-  (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(function () { window.focus(); window.print(); }, 350); });
-<\/script></body></html>`;
+    const nombre = normalizar(titulo).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) + "-" + ahora.toISOString().slice(0, 10) + ".pdf";
+    const html =
+      `<header class="doc-cab"><img src="logo-slep.png" alt="SLEP Andalién Sur"><div><strong>Servicio Local de Educación Pública Andalién Sur</strong><span>Asistente IA Educativa · Documento de trabajo</span></div></header>
+      <h1 class="doc-titulo">${escapar(titulo)}</h1>
+      <table class="doc-meta">${filaMeta("Fecha", fecha)}${filaMeta("Elaborado para", [p.rol && ROLES[p.rol] ? ROLES[p.rol].nombre : "", p.cargo].filter(Boolean).join(" · "))}${filaMeta("Establecimiento o alcance", [p.establecimiento, p.alcance].filter(Boolean).join(" · "))}</table>
+      ${pregunta ? `<div class="doc-consulta"><strong>Consulta:</strong> ${escapar(pregunta)}</div>` : ""}
+      <div class="burbuja doc-cuerpo">${c.innerHTML}</div>
+      <section class="doc-aviso"><strong>Nota:</strong> documento elaborado con apoyo de inteligencia artificial mediante el Asistente IA Educativa del SLEP Andalién Sur. Su contenido es una propuesta que debe ser revisada por la persona responsable antes de usarse; verifique datos, normativa y fuentes. No incluye datos personales de estudiantes, familias ni funcionarios (Ley N° 21.719).</section>`;
+    return { titulo, fecha, nombre, html };
   }
-  function descargarPDF(msg) {
-    const html = documentoPDF(msg);
-    aviso("Se abrirá la ventana para imprimir: elige «Guardar como PDF».");
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    if (ios) {   // en iPhone/iPad se abre en una pestaña: Compartir → Imprimir → Guardar como PDF
-      const w = window.open("", "_blank");
-      if (w) { w.document.open(); w.document.write(html); w.document.close(); return; }
+
+  // Los gráficos usan estilos de la hoja CSS: para convertirlos en imagen se copian como atributos
+  function fijarEstilosSVG(raiz) {
+    // Tamaño explícito: sin esto la librería dibuja el gráfico recortado y agrandado
+    raiz.querySelectorAll("svg").forEach((s) => {
+      const w = s.clientWidth, h = s.clientHeight;
+      if (w && h) { s.setAttribute("width", w); s.setAttribute("height", h); s.style.width = w + "px"; s.style.height = h + "px"; }
+    });
+    raiz.querySelectorAll("svg *").forEach((n) => {
+      const cs = getComputedStyle(n);
+      ["fill", "stroke", "stroke-width", "stroke-dasharray", "stroke-dashoffset", "opacity", "font-size", "font-weight", "font-family"].forEach((k) => {
+        const v = cs.getPropertyValue(k); if (v && v !== "normal") n.setAttribute(k, v);
+      });
+      n.style.transform = "none"; n.style.transition = "none";
+    });
+  }
+
+  // Carga html2pdf.js (convierte la vista previa en PDF) solo la primera vez que se necesita
+  let promesaHtml2pdf = null;
+  function cargarHtml2pdf() {
+    if (window.html2pdf) return Promise.resolve();
+    if (!promesaHtml2pdf) {
+      promesaHtml2pdf = new Promise((ok, mal) => {
+        const s = document.createElement("script");
+        s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
+        s.onload = () => ok(); s.onerror = () => { promesaHtml2pdf = null; mal(new Error("sin conexión")); };
+        document.head.appendChild(s);
+        setTimeout(() => mal(new Error("tiempo agotado")), 20000);
+      });
     }
-    const f = document.createElement("iframe");
-    f.className = "marco-impresion"; f.setAttribute("aria-hidden", "true");
-    document.body.appendChild(f);
-    f.contentWindow.document.open(); f.contentWindow.document.write(html); f.contentWindow.document.close();
-    setTimeout(() => f.remove(), 120000);
+    return promesaHtml2pdf;
   }
+  async function crearPDF(hoja, partes) {
+    await cargarHtml2pdf();
+    if (document.fonts) await document.fonts.ready;
+    await Promise.all([...hoja.querySelectorAll("img")].map((i) => (i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; }))));
+    fijarEstilosSVG(hoja);
+    const trabajo = window.html2pdf().set({
+      margin: [14, 12, 16, 12], filename: partes.nombre,
+      image: { type: "jpeg", quality: 0.95 },
+      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["css", "legacy"], avoid: [".grafico", "tr", ".pei-bloque", ".doc-aviso", ".nota", "h4", "img", ".doc-consulta"] }
+    }).from(hoja).toPdf();
+    const pdf = await trabajo.get("pdf");
+    const total = pdf.internal.getNumberOfPages();
+    for (let i = 1; i <= total; i++) {   // pie de página con número
+      pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(122, 134, 150);
+      pdf.text(`SLEP Andalién Sur · Asistente IA Educativa · ${partes.fecha}`, 12, 289);
+      pdf.text(`Página ${i} de ${total}`, 198, 289, { align: "right" });
+    }
+    return pdf.output("blob");
+  }
+
+  /* Vista previa dentro de la app: no abre otra pestaña y se cierra con ✕, Esc o «atrás» */
+  let vista = null;
+  function abrirVistaPDF(msg, intencion) {
+    cerrarVistaPDF(true);
+    const partes = partesDoc(msg);
+    const v = document.createElement("div");
+    v.className = "pdf-vista"; v.setAttribute("role", "dialog"); v.setAttribute("aria-modal", "true"); v.setAttribute("aria-label", "Vista previa del PDF");
+    v.innerHTML = `<style>${CSS_DOC}</style>
+      <div class="pdf-barra">
+        <button type="button" class="pdf-cerrar" data-pdf="cerrar" aria-label="Cerrar vista previa">✕ Cerrar</button>
+        <span class="pdf-estado">⏳ Preparando el PDF…</span>
+        <div class="pdf-botones">
+          <button type="button" data-pdf="bajar" disabled>⬇️ Descargar</button>
+          <button type="button" data-pdf="wa" class="pdf-wa" disabled>${ICONO_WA} WhatsApp</button>
+          <button type="button" data-pdf="mail" disabled>✉️ Correo</button>
+          ${navigator.share ? `<button type="button" data-pdf="mas" disabled>↗️ Más</button>` : ""}
+          <button type="button" data-pdf="imprimir" title="Imprimir o guardar como PDF desde el navegador">🖨️</button>
+        </div>
+      </div>
+      <div class="pdf-correo" hidden></div>
+      <div class="pdf-lienzo"><div class="pdf-escala"><div class="pdf-hoja">${partes.html}</div></div></div>`;
+    document.body.appendChild(v);
+    document.body.classList.add("con-vista-pdf");
+    vista = { el: v, msg, partes, blob: null, intencion };
+    // «Atrás» del teléfono cierra la vista previa en vez de salir de la app
+    try { history.pushState({ vistaPDF: true }, ""); } catch (e) { /* sin historial */ }
+    ajustarEscala();
+    const actual = vista;
+    crearPDF(v.querySelector(".pdf-hoja"), partes).then((blob) => {
+      if (vista !== actual) return;
+      actual.blob = blob;
+      v.querySelectorAll(".pdf-botones button").forEach((b) => { b.disabled = false; });
+      const kb = Math.max(1, Math.round(blob.size / 1024));
+      v.querySelector(".pdf-estado").textContent = `✅ PDF listo (${kb} KB)`;
+      const destino = { wa: "wa", mail: "mail", compartir: "mas", pdf: "bajar" }[intencion];
+      const b = destino && v.querySelector(`[data-pdf="${destino}"]`);
+      if (b) { b.classList.add("pulso"); b.focus(); if (destino === "mail") mostrarFormCorreo(); }
+    }).catch((e) => {
+      if (vista !== actual) return;
+      v.querySelector(".pdf-estado").textContent = `No se pudo crear el PDF (${e.message}). Usa 🖨️ para guardarlo como PDF.`;
+      v.querySelector('[data-pdf="imprimir"]').classList.add("pulso");
+    });
+  }
+  function ajustarEscala() {
+    if (!vista) return;
+    const lienzo = vista.el.querySelector(".pdf-lienzo"), esc = vista.el.querySelector(".pdf-escala"), hoja = vista.el.querySelector(".pdf-hoja");
+    const k = Math.min(1, (lienzo.clientWidth - 24) / hoja.offsetWidth);
+    esc.style.transform = `scale(${k})`; esc.style.height = (hoja.offsetHeight * k) + "px"; esc.style.width = (hoja.offsetWidth * k) + "px";
+  }
+  window.addEventListener("resize", ajustarEscala);
+  function cerrarVistaPDF(sinHistorial) {
+    if (!vista) return;
+    vista.el.remove(); vista = null;
+    document.body.classList.remove("con-vista-pdf");
+    if (!sinHistorial && history.state && history.state.vistaPDF) { try { history.back(); } catch (e) { /* nada */ } }
+  }
+  window.addEventListener("popstate", () => { if (vista) cerrarVistaPDF(true); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && vista) cerrarVistaPDF(); });
+
+  const archivoPDF = () => new File([vista.blob], vista.partes.nombre, { type: "application/pdf" });
+  const puedeCompartirArchivo = () => { try { return !!(navigator.canShare && navigator.canShare({ files: [archivoPDF()] })); } catch (e) { return false; } };
+  function bajarPDF() {
+    const url = URL.createObjectURL(vista.blob), a = document.createElement("a");
+    a.href = url; a.download = vista.partes.nombre; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  }
+  async function compartirArchivo(texto) {
+    try { await navigator.share({ files: [archivoPDF()], title: vista.partes.titulo, text: texto }); return true; }
+    catch (e) { return e && e.name === "AbortError"; }   // cancelado por la persona: no es error
+  }
+  async function pdfWhatsApp() {
+    const texto = `Te comparto el documento «${vista.partes.titulo}» (SLEP Andalién Sur).`;
+    if (puedeCompartirArchivo()) {   // celular: menú para compartir con el PDF adjunto → elegir WhatsApp
+      aviso("Elige WhatsApp en el menú para enviar el PDF");
+      await compartirArchivo(texto);
+      return;
+    }
+    // Computador sin esa opción: se descarga el PDF y se abre WhatsApp para adjuntarlo
+    bajarPDF();
+    window.open("https://wa.me/?text=" + encodeURIComponent(texto + " (adjunto el PDF)"), "_blank", "noopener");
+    aviso("El PDF se descargó: en WhatsApp toca 📎 y adjúntalo");
+  }
+
+  /* Correo desde la misma aplicación: el Apps Script lo envía con el PDF adjunto */
+  function mostrarFormCorreo() {
+    const caja = vista.el.querySelector(".pdf-correo");
+    if (!caja.hidden) { caja.querySelector("input").focus(); return; }
+    caja.hidden = false;
+    caja.innerHTML = `<form class="form-correo">
+        <strong>✉️ Enviar por correo con el PDF adjunto</strong>
+        <label>Para <small>(hasta 5 correos, separados por coma)</small><input type="text" name="para" inputmode="email" autocomplete="email" placeholder="nombre@andaliensur.cl" required></label>
+        <label>Asunto<input type="text" name="asunto" maxlength="150" value="${escapar(vista.partes.titulo)} · SLEP Andalién Sur"></label>
+        <label>Mensaje<textarea name="mensaje" rows="3" maxlength="3000">Estimado/a:\n\nAdjunto el documento «${escapar(vista.partes.titulo)}», elaborado con el Asistente IA Educativa del SLEP Andalién Sur.\n\nSaludos cordiales.</textarea></label>
+        <label>Tu correo, para que puedan responderte <small>(opcional)</small><input type="text" name="responder" inputmode="email" autocomplete="email"></label>
+        <div class="form-correo-botones">
+          <button type="submit" class="primario">📤 Enviar</button>
+          <button type="button" data-pdf="mail-app">Usar mi app de correo</button>
+          <button type="button" data-pdf="mail-cerrar">Cancelar</button>
+        </div>
+        <p class="form-correo-estado" aria-live="polite"></p>
+      </form>`;
+    caja.querySelector("input").focus();
+    caja.querySelector("form").addEventListener("submit", (e) => { e.preventDefault(); enviarCorreoApp(e.target); });
+  }
+  const RE_CORREO = /^[^\s@,;]+@[^\s@,;]+\.[a-z]{2,}$/i;
+  async function enviarCorreoApp(form) {
+    const estado = form.querySelector(".form-correo-estado");
+    const para = form.para.value.split(/[,;\s]+/).map((x) => x.trim()).filter(Boolean);
+    if (!para.length || para.length > 5 || !para.every((x) => RE_CORREO.test(x))) { estado.textContent = "⚠️ Revisa los correos de destino (máximo 5, separados por coma)."; return; }
+    if (form.responder.value && !RE_CORREO.test(form.responder.value.trim())) { estado.textContent = "⚠️ Revisa tu correo para respuestas."; return; }
+    if (revisarPrivacidad(form.mensaje.value).hallazgos.length) { estado.textContent = "⚠️ El mensaje parece incluir datos personales (RUT, teléfono o nombres con datos sensibles). Quítalos antes de enviar."; return; }
+    if (!MODO_IA) { estado.textContent = "El envío directo necesita el servicio del asistente. Usa «Usar mi app de correo»."; return; }
+    const boton = form.querySelector('button[type="submit"]'); boton.disabled = true; estado.textContent = "⏳ Enviando…";
+    try {
+      const b64 = await new Promise((ok, mal) => { const r = new FileReader(); r.onload = () => ok(String(r.result).split(",")[1]); r.onerror = mal; r.readAsDataURL(vista.blob); });
+      const resp = await fetch(CONFIG.API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ accion: "enviar-correo", para, asunto: form.asunto.value, mensaje: form.mensaje.value, responder: form.responder.value.trim(), nombre: vista.partes.nombre, pdf: b64 }) });
+      const d = await resp.json();
+      if (!d.ok) throw new Error(d.error || "no se pudo enviar");
+      estado.textContent = `✅ Correo enviado a ${para.join(", ")}.`;
+      aviso("✅ Correo enviado con el PDF adjunto");
+      setTimeout(() => { if (vista) vista.el.querySelector(".pdf-correo").hidden = true; }, 2500);
+    } catch (e) {
+      estado.textContent = /no reconocida/i.test(e.message)
+        ? "El envío directo aún no está activado en el servicio (requiere actualizar el Apps Script). Usa «Usar mi app de correo»."
+        : `No se pudo enviar (${e.message}). Puedes usar «Usar mi app de correo».`;
+    } finally { boton.disabled = false; }
+  }
+  async function correoConMiApp() {
+    if (puedeCompartirArchivo()) { await compartirArchivo(`Adjunto el documento «${vista.partes.titulo}» (SLEP Andalién Sur).`); return; }
+    bajarPDF();
+    location.href = "mailto:?subject=" + encodeURIComponent(vista.partes.titulo + " · SLEP Andalién Sur") +
+      "&body=" + encodeURIComponent(`Estimado/a:\n\nAdjunto el documento «${vista.partes.titulo}», elaborado con el Asistente IA Educativa del SLEP Andalién Sur.\n\n(El PDF se descargó en tu equipo: adjúntalo a este correo.)\n\nSaludos cordiales.`);
+    aviso("El PDF se descargó: adjúntalo al correo");
+  }
+  // Botones de la vista previa
+  document.addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-pdf]"); if (!b || !vista) return;
+    const a = b.dataset.pdf;
+    if (a === "cerrar") return cerrarVistaPDF();
+    if (a === "imprimir") { window.print(); return; }   // la hoja de estilos de impresión muestra solo el documento
+    if (a === "mail-cerrar") { vista.el.querySelector(".pdf-correo").hidden = true; return; }
+    if (!vista.blob) return;
+    b.classList.remove("pulso");
+    if (a === "bajar") { bajarPDF(); aviso("⬇️ PDF descargado"); }
+    else if (a === "wa") await pdfWhatsApp();
+    else if (a === "mail") mostrarFormCorreo();
+    else if (a === "mail-app") await correoConMiApp();
+    else if (a === "mas") await compartirArchivo(`Documento «${vista.partes.titulo}» (SLEP Andalién Sur).`);
+  });
+
   // Mensaje del chat al que corresponde un botón (el mismo, o el indicado con data-ref)
   const msgDe = (b) => (b.dataset.ref ? el.mensajes.querySelector(`.msg[data-id="${b.dataset.ref}"]`) : b.closest(".msg"));
   async function accionMensaje(accion, b) {
     const msg = msgDe(b); if (!msg) return;
-    if (accion === "msg-pdf") descargarPDF(msg);
-    else if (accion === "msg-wa") compartirWhatsApp(msg);
-    else if (accion === "msg-mail") compartirCorreo(msg);
-    else if (accion === "msg-compartir") compartirNativo(msg);
-    else if (accion === "msg-copiar") { const ok = await copiarTexto(textoParaEnviar(msg, false)); aviso(ok ? "✅ Texto copiado" : "No se pudo copiar"); }
+    if (accion === "msg-copiar") { const ok = await copiarTexto(textoParaEnviar(msg, false)); aviso(ok ? "✅ Texto copiado" : "No se pudo copiar"); return; }
+    // PDF, WhatsApp, correo y «Más» comparten el documento en PDF (más ordenado que un texto)
+    abrirVistaPDF(msg, { "msg-pdf": "pdf", "msg-wa": "wa", "msg-mail": "mail", "msg-compartir": "compartir" }[accion]);
   }
 
   /* ================================================================

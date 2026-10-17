@@ -543,3 +543,42 @@ button { font: inherit; cursor: pointer; }
   transition: opacity .3s, transform .3s; max-width: calc(100vw - 32px); text-align: center; }
 .aviso-flotante.visible { opacity: 1; transform: translate(-50%, 0); }
 .marco-impresion { position: fixed; width: 0; height: 0; border: 0; right: 0; bottom: 0; visibility: hidden; }
+
+/* ---------------- Vista previa del PDF (dentro de la app, sin abrir otra pestaña) ---------------- */
+.pdf-vista { position: fixed; inset: 0; z-index: 80; display: flex; flex-direction: column; background: rgba(15, 25, 40, .72); backdrop-filter: blur(3px); animation: entra .2s ease-out; }
+body.con-vista-pdf { overflow: hidden; }
+.pdf-barra { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top));
+  background: #1d2633; color: #fff; box-shadow: 0 4px 16px rgba(0, 0, 0, .3); position: relative; }
+.pdf-barra::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--arcoiris); }
+.pdf-cerrar { background: #ff3c4c; color: #fff; border: 0; border-radius: 12px; padding: 10px 16px; font: inherit; font-weight: 800; font-size: .95rem; cursor: pointer; box-shadow: 0 3px 10px rgba(255, 60, 76, .4); }
+.pdf-estado { font-size: .84rem; font-weight: 600; flex: 1; min-width: 140px; }
+.pdf-botones { display: flex; gap: 6px; flex-wrap: wrap; }
+.pdf-botones button { display: inline-flex; align-items: center; gap: 6px; border: 0; border-radius: 11px; padding: 9px 13px; font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer;
+  background: #fff; color: #1d2633; transition: transform .15s, opacity .15s; }
+.pdf-botones button:disabled { opacity: .45; cursor: wait; }
+.pdf-botones button:not(:disabled):hover { transform: translateY(-1px); }
+.pdf-botones .pdf-wa { background: #25d366; color: #fff; }
+.pdf-botones button.pulso { animation: pulso-boton 1.1s ease-in-out infinite; }
+@keyframes pulso-boton { 0%, 100% { box-shadow: 0 0 0 0 rgba(144, 208, 57, .9); } 50% { box-shadow: 0 0 0 7px rgba(144, 208, 57, 0); } }
+.pdf-lienzo { flex: 1; overflow: auto; padding: 18px 12px 40px; -webkit-overflow-scrolling: touch; }
+.pdf-escala { transform-origin: top left; margin: 0 auto; }
+.pdf-lienzo .pdf-hoja { padding: 14mm 12mm 16mm; width: 210mm; box-shadow: 0 10px 40px rgba(0, 0, 0, .35); border-radius: 4px; }
+.pdf-correo { background: var(--panel); color: var(--texto); padding: 12px 14px; border-bottom: 1px solid var(--borde); max-height: 70vh; overflow: auto; }
+.form-correo { display: grid; gap: 8px; max-width: 640px; margin: 0 auto; }
+.form-correo label { display: grid; gap: 4px; font-size: .82rem; font-weight: 700; }
+.form-correo small { font-weight: 500; color: var(--texto-2); }
+.form-correo input, .form-correo textarea { font: inherit; font-size: .92rem; padding: 9px 11px; border-radius: 10px; border: 1.5px solid var(--borde); background: var(--panel); color: var(--texto); }
+.form-correo-botones { display: flex; gap: 8px; flex-wrap: wrap; }
+.form-correo-botones button { border: 1.5px solid var(--borde); background: var(--panel-2); color: var(--texto); border-radius: 10px; padding: 9px 14px; font: inherit; font-weight: 700; font-size: .86rem; cursor: pointer; }
+.form-correo-botones .primario { background: linear-gradient(135deg, #0071ea, #3abff0); color: #fff; border: 0; }
+.form-correo-estado { margin: 0; font-size: .84rem; font-weight: 600; }
+@media print {   /* «Imprimir» desde la vista previa: solo el documento */
+  body.con-vista-pdf > *:not(.pdf-vista) { display: none !important; }
+  body.con-vista-pdf { overflow: visible !important; height: auto !important; background: #fff !important; }
+  .pdf-vista { position: static !important; background: #fff !important; backdrop-filter: none !important; display: block !important; }
+  .pdf-barra, .pdf-correo { display: none !important; }
+  .pdf-lienzo { padding: 0 !important; overflow: visible !important; }
+  .pdf-escala { transform: none !important; width: auto !important; height: auto !important; }
+  .pdf-lienzo .pdf-hoja { box-shadow: none !important; padding: 0 !important; width: auto !important; }
+  @page { size: A4; margin: 16mm 15mm 18mm; }
+}
