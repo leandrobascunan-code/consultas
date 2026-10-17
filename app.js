@@ -711,7 +711,7 @@
       const b = div.querySelector(".burbuja");
       if (b.textContent.length > 220 || b.querySelector(".grafico, table")) {
         b.insertAdjacentHTML("beforeend", accionesMsg());
-        if (!window.html2pdf) setTimeout(() => cargarHtml2pdf().catch(() => {}), 2500);   // precarga: el PDF sale más rápido
+        if (!window.html2canvas) setTimeout(() => cargarHtml2pdf().catch(() => {}), 2500);   // precarga: el PDF sale más rápido
       }
     }
     if (enInicio && !el.mensajes.querySelector(".msg.user")) {
@@ -1870,7 +1870,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
 
   /* PDF: documento formal (membrete, datos, contenido ordenado, fuentes y nota de uso de IA).
      Se muestra como VISTA PREVIA dentro de la app (se cierra con ✕ o con «atrás»), se convierte en un
-     PDF real (html2pdf.js, cargado solo cuando se usa) y se puede descargar o compartir como archivo. */
+     PDF real (html2canvas + jsPDF, cargados solo cuando se usan) y se puede descargar o compartir como archivo. */
   const CSS_DOC = `
   .pdf-hoja { width: 186mm; background: #fff; color: #1d2633; font: 10.5pt/1.55 'Plus Jakarta Sans', system-ui, sans-serif; padding: 0; box-sizing: border-box; text-align: left;
     -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -1967,49 +1967,102 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     });
   }
 
-  // Carga html2pdf.js (convierte la vista previa en PDF) solo la primera vez que se necesita
-  let promesaHtml2pdf = null;
-  function cargarHtml2pdf() {
-    if (window.html2pdf) return Promise.resolve();
-    if (!promesaHtml2pdf) {
-      promesaHtml2pdf = new Promise((ok, mal) => {
-        const s = document.createElement("script");
-        s.src = "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js";
-        s.onload = () => ok(); s.onerror = () => { promesaHtml2pdf = null; mal(new Error("sin conexión")); };
-        document.head.appendChild(s);
-        setTimeout(() => mal(new Error("tiempo agotado")), 20000);
-      });
+  // Carga html2canvas (captura el documento) y jsPDF (arma el PDF) solo la primera vez que se necesitan
+  let promesaLibsPDF = null;
+  function cargarScript(src) {
+    return new Promise((ok, mal) => {
+      const s = document.createElement("script"); s.src = src; s.async = true;
+      s.onload = () => ok(); s.onerror = () => mal(new Error("sin conexión"));
+      document.head.appendChild(s);
+    });
+  }
+  function cargarHtml2pdf() {   // (nombre conservado: se usa para la precarga)
+    if (window.html2canvas && window.jspdf) return Promise.resolve();
+    if (!promesaLibsPDF) {
+      promesaLibsPDF = Promise.race([
+        Promise.all([
+          window.html2canvas ? 0 : cargarScript("https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"),
+          window.jspdf ? 0 : cargarScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js")
+        ]),
+        new Promise((_, mal) => setTimeout(() => mal(new Error("tiempo agotado al cargar")), 20000))
+      ]).catch((e) => { promesaLibsPDF = null; throw e; });
     }
-    return promesaHtml2pdf;
+    return promesaLibsPDF;
   }
   const conLimite = (promesa, ms) => Promise.race([promesa, new Promise((ok) => setTimeout(ok, ms))]);
-  async function crearPDF(hoja, partes, avance) {
+
+  /* Crea el PDF: copia el documento en una zona limpia (sin escala ni desplazamiento, que en los celulares
+     dejaban la primera hoja en blanco), lo captura y lo reparte en hojas A4 cortando ENTRE párrafos, filas
+     o gráficos para que cada hoja quede bien ocupada y nada se corte a la mitad. */
+  async function crearPDF(_hojaVista, partes, avance) {
     avance && avance("⏳ Cargando el generador de PDF…");
     await cargarHtml2pdf();
     avance && avance("⏳ Armando el documento…");
-    if (document.fonts) await conLimite(document.fonts.ready, 3000);
-    await conLimite(Promise.all([...hoja.querySelectorAll("img")].map((i) => (i.complete ? 0 : new Promise((r) => { i.addEventListener("load", r); i.addEventListener("error", r); })))), 4000);
-    fijarEstilosSVG(hoja);
-    // Resolución según el tamaño del documento y el equipo: en celulares una imagen muy grande lo deja pegado
-    const movil = (window.innerWidth || 800) < 700 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    const area = Math.max(1, hoja.offsetWidth * hoja.scrollHeight);
-    const escala = Math.max(1, Math.min(movil ? 1.4 : 2, Math.sqrt((movil ? 6e6 : 12e6) / area)));
-    avance && avance("⏳ Creando el PDF…");
-    const trabajo = window.html2pdf().set({
-      margin: [14, 12, 16, 12], filename: partes.nombre,
-      image: { type: "jpeg", quality: 0.9 },
-      html2canvas: { scale: escala, useCORS: true, backgroundColor: "#ffffff", logging: false, imageTimeout: 4000 },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait", compress: true },
-      pagebreak: { mode: ["css"], avoid: [".grafico", ".pei-bloque", ".doc-aviso"] }
-    }).from(hoja).toPdf();
-    const pdf = await trabajo.get("pdf");
-    const total = pdf.internal.getNumberOfPages();
-    for (let i = 1; i <= total; i++) {   // pie de página con número
-      pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(122, 134, 150);
-      pdf.text(`SLEP Andalién Sur · Asistente IA Educativa · ${partes.fecha}`, 12, 289);
-      pdf.text(`Página ${i} de ${total}`, 198, 289, { align: "right" });
+    if (!document.getElementById("css-doc-pdf")) {   // estilos del documento disponibles en toda la página
+      const st = document.createElement("style"); st.id = "css-doc-pdf"; st.textContent = CSS_DOC; document.head.appendChild(st);
     }
-    return pdf.output("blob");
+    const cont = document.createElement("div");
+    cont.className = "pdf-hoja pdf-render";
+    cont.innerHTML = partes.html;
+    cont.style.cssText = "position:absolute;left:0;top:0;width:186mm;margin:0;padding:0;background:#fff;z-index:-5;transform:none;";
+    document.body.appendChild(cont);
+    try {
+      if (document.fonts) await conLimite(document.fonts.ready, 3000);
+      await conLimite(Promise.all([...cont.querySelectorAll("img")].map((i) => (i.complete ? 0 : new Promise((r) => { i.addEventListener("load", r); i.addEventListener("error", r); })))), 4000);
+      fijarEstilosSVG(cont);
+      const sx = window.scrollX, sy = window.scrollY;
+      window.scrollTo(0, 0);
+      const W = cont.offsetWidth, H = Math.ceil(cont.scrollHeight), base = cont.getBoundingClientRect().top;
+      // Posibles cortes de página: bordes de párrafos, ítems, filas, títulos, gráficos y recuadros
+      const cortes = new Set([0, H]);
+      cont.querySelectorAll("p, li, tr, h1, h3, h4, figure, .grafico, .pei-bloque, .nota, .doc-aviso, .doc-consulta, .doc-meta, .doc-cab, pre, .bloque-codigo, table, ul, ol, .pdf-fuentes, .pdf-video, .img-resp")
+        .forEach((n) => { const r = n.getBoundingClientRect(); if (r.height) { cortes.add(Math.round(r.top - base)); cortes.add(Math.round(r.bottom - base)); } });
+      // No cortar justo después de un título o del encabezado de una tabla (quedarían solos al final de la hoja)
+      const prohibidos = new Set();
+      cont.querySelectorAll("h1, h3, h4, .g-titulo, tr:first-child").forEach((n) => {
+        if (n.tagName === "TR" && !n.querySelector("th")) return;
+        const r = n.getBoundingClientRect(); if (r.height) prohibidos.add(Math.round(r.bottom - base));
+      });
+      const lista = [...cortes].filter((c) => c >= 0 && c <= H && ![...prohibidos].some((p) => Math.abs(p - c) <= 2)).sort((a, b) => a - b);
+      // Resolución: alta en computador; más liviana en celular (una imagen enorme los deja pegados)
+      const movil = (window.innerWidth || 800) < 700 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const escala = Math.max(1, Math.min(movil ? 1.6 : 2, Math.sqrt((movil ? 7e6 : 14e6) / Math.max(1, W * H))));
+      avance && avance("⏳ Creando el PDF…");
+      const lienzo = await window.html2canvas(cont, { scale: escala, backgroundColor: "#ffffff", useCORS: true, logging: false, imageTimeout: 4000,
+        scrollX: 0, scrollY: 0, windowWidth: Math.max(W, document.documentElement.clientWidth), windowHeight: H });
+      window.scrollTo(sx, sy);
+      // Hojas A4: márgenes 12 mm a los lados, 14 mm arriba y 18 mm abajo (pie de página)
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait", compress: true });
+      const anchoMM = 186, altoMM = 265, pxPorMM = W / anchoMM, altoPx = altoMM * pxPorMM;
+      const paginas = [];
+      for (let y = 0; y < H - 1;) {
+        const lim = y + altoPx;
+        if (lim >= H) { paginas.push([y, H]); break; }
+        // el corte más bajo posible que deje la hoja al menos 60 % ocupada
+        let corte = lista.filter((c) => c > y + altoPx * 0.6 && c <= lim).pop();
+        if (!corte) corte = Math.floor(lim);
+        paginas.push([y, corte]); y = corte;
+      }
+      paginas.forEach(([a, b], i) => {
+        if (i) pdf.addPage();
+        const trozo = document.createElement("canvas");
+        trozo.width = lienzo.width; trozo.height = Math.max(1, Math.round((b - a) * escala));
+        const ctx = trozo.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, trozo.width, trozo.height);
+        ctx.drawImage(lienzo, 0, Math.round(a * escala), lienzo.width, trozo.height, 0, 0, trozo.width, trozo.height);
+        pdf.addImage(trozo.toDataURL("image/jpeg", 0.9), "JPEG", 12, 14, anchoMM, (b - a) / pxPorMM, undefined, "FAST");
+      });
+      const total = pdf.internal.getNumberOfPages();
+      for (let i = 1; i <= total; i++) {   // pie de página con número
+        pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(122, 134, 150);
+        pdf.setDrawColor(226, 233, 243); pdf.line(12, 284, 198, 284);
+        pdf.text(`SLEP Andalién Sur · Asistente IA Educativa · ${partes.fecha}`, 12, 289);
+        pdf.text(`Página ${i} de ${total}`, 198, 289, { align: "right" });
+      }
+      return pdf.output("blob");
+    } finally {
+      cont.remove();
+    }
   }
 
   /* Vista previa dentro de la app: no abre otra pestaña y se cierra con ✕, Esc o «atrás» */

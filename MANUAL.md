@@ -147,7 +147,7 @@ Si los documentos del asistente no responden la consulta, la IA puede buscar en 
 
 - Bajo cada respuesta con contenido: **📄 PDF**, **WhatsApp**, **✉️ Correo**, **📋 Copiar** y (en celulares) **↗️ Más**.
 - PDF, WhatsApp, Correo y Más abren una **vista previa dentro de la app** (no abre otra pestaña): se cierra con **✕ Cerrar**, con la tecla Esc o con el botón «atrás» del teléfono.
-- En la vista previa se genera un **PDF real** (A4, membrete del SLEP, fecha, rol/cargo, consulta, contenido con gráficos y tablas, fuentes, nota de uso de IA y número de página) con la librería html2pdf.js (se descarga de cdnjs solo al usarla).
+- En la vista previa se genera un **PDF real** (A4, membrete del SLEP, fecha, rol/cargo, consulta, contenido con gráficos y tablas, fuentes, nota de uso de IA y número de página) con html2canvas y jsPDF (se descargan de cdnjs solo al usarlos); el documento se reparte en hojas A4 cortando entre párrafos, filas o gráficos.
 - **WhatsApp / Más:** abre el menú para compartir del teléfono **con el PDF adjunto** (se elige WhatsApp, Gmail, etc.). En computadores sin esa opción, el PDF se descarga y se abre WhatsApp para adjuntarlo.
 - **Correo desde la app:** formulario con Para (hasta 5), Asunto, Mensaje y correo para respuestas; el Apps Script (groq-9) lo envía con el PDF adjunto desde la cuenta del Servicio. Límite diario `LIMITE_CORREOS` (60 por defecto) y dominios permitidos opcionales `DOMINIOS_CORREO` (ej. `andaliensur.cl`). Requiere ejecutar una vez `autorizarCorreo` (o `configurarContenido`) para dar el permiso de envío. Alternativa: «Usar mi app de correo».
 - Si no hay conexión para crear el PDF, el botón 🖨️ imprime solo el documento («Guardar como PDF»).
