@@ -121,6 +121,12 @@
      colores del SLEP. Se animan cuando aparecen en pantalla.
      ================================================================ */
   const PALETA = ["#0071ea", "#4fa61a", "#f0a500", "#ff3c4c", "#22a9dc", "#9b59d0", "#e0559b", "#0b8f6a"];
+  // Aclara un color hexadecimal (mezcla con blanco) para los degradados
+  function aclarar(hex, k) {
+    const m = String(hex).match(/^#?([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i);
+    if (!m) return hex;
+    return "#" + m.slice(1).map((x) => Math.round(parseInt(x, 16) + (255 - parseInt(x, 16)) * k).toString(16).padStart(2, "0")).join("");
+  }
   const desescapar = (t) => String(t).replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
   function aNumero(v) {
     if (typeof v === "number") return isFinite(v) ? v : null;
@@ -137,6 +143,7 @@
   /* Verificación de datos: un gráfico de la IA solo se dibuja si sus números están en la información que el
      asistente le entregó (PAL, fichas, perfil) o si indica el enlace exacto de donde salen los datos. */
   let contextoVigente = "";   // contexto enviado en la última consulta a la IA
+  let datosUsuarioVigentes = "";   // lo que la persona escribió (si entrega sus propios datos para un gráfico)
   const numerosDe = (txt) => new Set((String(txt).match(/-?\d[\d.,]*\d|-?\d/g) || []).map((x) => aNumero(x)).filter((x) => x !== null).map((x) => +x.toFixed(2)));
   const valoresDe = (spec) => spec.tipo === "cifras" ? (spec.cifras || []).map((c) => aNumero(c.valor))
     : (spec.series || []).flatMap((s) => (s.datos || []).map(aNumero));
@@ -146,6 +153,10 @@
     if (vals.length && contexto) {
       const enCtx = numerosDe(contexto);
       if (vals.every((v) => enCtx.has(+v.toFixed(2)))) return { estado: "contexto", enlace };
+    }
+    if (vals.length && datosUsuarioVigentes) {   // números que la propia persona entregó en el chat
+      const enUsu = numerosDe(datosUsuarioVigentes);
+      if (vals.every((v) => enUsu.has(+v.toFixed(2)))) return { estado: "usuario", enlace };
     }
     if (enlace && spec.fuente) return { estado: "enlace", enlace };
     return { estado: "sin-fuente" };
@@ -158,7 +169,9 @@
       return `<div class="nota grafico-rechazado">📊 No muestro este gráfico porque sus datos no tienen una fuente verificable: no coinciden con la información del asistente ni indican el enlace de donde provienen.</div>`;
     }
     spec.enlace = v.enlace;
-    spec._sello = v.estado === "contexto" ? "✅ Datos verificados con la información del asistente" : "🔗 Datos de una fuente externa: revísalos en el enlace";
+    spec._sello = v.estado === "contexto" ? "✅ Datos verificados con la información del asistente"
+      : v.estado === "usuario" ? "✅ Gráfico elaborado con los datos que entregaste" : "🔗 Datos de una fuente externa: revísalos en el enlace";
+    if (v.estado === "usuario" && !spec.fuente) spec.fuente = "Datos entregados por quien consulta";
     return graficoHTML(spec);
   }
   // spec: { tipo, titulo, etiquetas, series:[{nombre, datos}], unidad, fuente }  ·  tipo "cifras": { cifras:[{etiqueta, valor, unidad}] }
@@ -168,8 +181,9 @@
     let tipo = String(spec.tipo || "barras").toLowerCase().replace("gráfico de ", "").replace(/\s+/g, "-");
     tipo = { bar: "barras", barra: "barras", columnas: "barras", horizontal: "barras-h", line: "lineas", linea: "lineas", líneas: "lineas", pie: "torta",
       circular: "torta", donut: "dona", indicadores: "cifras", kpi: "cifras" }[tipo] || tipo;
-    let cuerpo = "", leyenda = "", tabla = "";
+    let cuerpo = "", leyenda = "", tabla = "", defs = "", nSeries = 0;
     const movil = (window.innerWidth || 800) < 600;   // en celular el dibujo es más angosto para que el texto se lea bien
+    const uid = "g" + Math.random().toString(36).slice(2, 8);   // ids únicos para los degradados de este gráfico
     if (tipo === "cifras") {
       const cs = (spec.cifras || []).map((c) => ({ e: c.etiqueta || c.nombre || "", v: aNumero(c.valor), u: c.unidad || u })).filter((c) => c.v !== null).slice(0, 6);
       if (!cs.length) return "";
@@ -181,10 +195,16 @@
       const series = (spec.series || (spec.datos ? [{ nombre: spec.titulo || "", datos: spec.datos }] : []))
         .slice(0, 5).map((s, k) => ({ n: s.nombre || "", c: s.color || PALETA[k % PALETA.length], d: et.map((_, i) => aNumero((s.datos || [])[i])) }));
       if (!et.length || !series.length || series.every((s) => s.d.every((x) => x === null))) return "";
+      nSeries = series.length;
+      // Degradados: barras verticales, horizontales y área bajo las líneas
+      defs = series.map((s, k) => `<linearGradient id="${uid}v${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${aclarar(s.c, .38)}"/><stop offset="1" stop-color="${s.c}"/></linearGradient>` +
+        `<linearGradient id="${uid}h${k}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${s.c}"/><stop offset="1" stop-color="${aclarar(s.c, .38)}"/></linearGradient>` +
+        `<linearGradient id="${uid}a${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.c}" stop-opacity=".32"/><stop offset="1" stop-color="${s.c}" stop-opacity="0"/></linearGradient>`).join("");
       tabla = `<table><tr><th></th>${series.map((s) => `<th>${escapar(s.n || "Valor")}</th>`).join("")}</tr>` +
         et.map((e, i) => `<tr><td>${escapar(e)}</td>${series.map((s) => `<td>${s.d[i] === null ? "—" : fmtNum(s.d[i], u)}</td>`).join("")}</tr>`).join("") + `</table>`;
       if (series.length > 1 || tipo === "lineas") leyenda = `<div class="g-leyenda">${series.map((s) => `<span><i style="background:${s.c}"></i>${escapar(s.n)}</span>`).join("")}</div>`;
-      if ((tipo === "barras" || tipo === "barras-h") && (et.length > 8 || et.reduce((a, e) => a + e.length, 0) / et.length > 13)) tipo = "barras-h";
+      if (!spec._forzar && tipo === "barras" && (et.length > 8 || et.reduce((a, e) => a + e.length, 0) / et.length > 13)) tipo = "barras-h";
+      if ((tipo === "torta" || tipo === "dona") && series.length > 1) tipo = "barras";   // torta/dona: una sola serie
       const vals = series.flatMap((s) => s.d).filter((x) => x !== null);
       // Escala con pasos "redondos" (0, 25, 50, 75, 100…) para que el eje se lea fácil
       const redondo = (x) => { const p = Math.pow(10, Math.floor(Math.log10(x))), f = x / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; };
@@ -216,11 +236,11 @@
           series.forEach((s, k) => {
             const v = s.d[i]; if (v === null) return;
             const y = y0 + alto * 0.14 + k * bw, xa = x(Math.min(0, v)), w = Math.abs(x(v) - x(0));
-            svg += `<rect class="g-barra g-barra-h" x="${xa}" y="${y}" width="${Math.max(w, 1)}" height="${bw - 2}" rx="4" fill="${s.c}" style="--d:${(i * series.length + k) * 45}ms;transform-origin:${v < 0 ? "right" : "left"} center"><title>${escapar(e)}: ${fmtNum(v, u)}</title></rect>` +
+            svg += `<rect class="g-barra g-barra-h" x="${xa}" y="${y}" width="${Math.max(w, 1)}" height="${bw - 2}" rx="${Math.min(7, (bw - 2) / 2)}" fill="url(#${uid}h${k})" style="--d:${(i * series.length + k) * 45}ms;transform-origin:${v < 0 ? "right" : "left"} center"><title>${escapar(e)}: ${fmtNum(v, u)}</title></rect>` +
               `<text x="${x(v) + (v < 0 ? -6 : 6)}" y="${y + bw / 2 + 2}" text-anchor="${v < 0 ? "end" : "start"}" class="g-val">${numAnim(v, u)}</text>`;
           });
         });
-        cuerpo = `<svg viewBox="0 0 ${W} ${H}" class="g-svg" role="img" aria-label="${escapar(spec.titulo || "Gráfico")}">${svg}</svg>`;
+        cuerpo = `<svg viewBox="0 0 ${W} ${H}" class="g-svg" role="img" aria-label="${escapar(spec.titulo || "Gráfico")}"><defs>${defs}</defs>${svg}</svg>`;
       } else {
         // barras verticales o líneas
         const W = movil ? 360 : 640, H = movil ? 270 : 300, izq = movil ? 44 : 52, der = 10, arr = 18, rotar = et.length > (movil ? 4 : 6), abajo = rotar ? 74 : 40, pw = W - izq - der, ph = H - arr - abajo;
@@ -240,7 +260,7 @@
             const pts = et.map((_, i) => (s.d[i] === null ? null : [izq + paso * (i + 0.5), y(s.d[i])])).filter(Boolean);
             if (!pts.length) return;
             const d = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
-            svg += `<path d="${d} L${pts[pts.length - 1][0]} ${y(Math.max(min, 0))} L${pts[0][0]} ${y(Math.max(min, 0))} Z" fill="${s.c}" class="g-area"/>` +
+            svg += `<path d="${d} L${pts[pts.length - 1][0]} ${y(Math.max(min, 0))} L${pts[0][0]} ${y(Math.max(min, 0))} Z" fill="url(#${uid}a${k})" class="g-area"/>` +
               `<path d="${d}" pathLength="1" fill="none" stroke="${s.c}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" class="g-linea" style="--d:${k * 250}ms"/>`;
             et.forEach((e, i) => { if (s.d[i] === null) return; const px = izq + paso * (i + 0.5), py = y(s.d[i]);
               svg += `<circle cx="${px}" cy="${py}" r="5" fill="#fff" stroke="${s.c}" stroke-width="3" class="g-punto" style="--d:${600 + i * 90}ms"><title>${escapar(e)}: ${fmtNum(s.d[i], u)}</title></circle>` +
@@ -251,16 +271,23 @@
           et.forEach((e, i) => series.forEach((s, k) => {
             const v = s.d[i]; if (v === null) return;
             const bx = izq + paso * i + paso * 0.15 + k * bw, top = y(Math.max(v, 0)), h = Math.abs(y(v) - y(0));
-            svg += `<rect class="g-barra" x="${bx}" y="${top}" width="${bw - 3}" height="${Math.max(h, 1)}" rx="5" fill="${s.c}" style="--d:${(i * series.length + k) * 55}ms;transform-origin:center ${v < 0 ? "top" : "bottom"}"><title>${escapar(e)}${s.n ? " · " + escapar(s.n) : ""}: ${fmtNum(v, u)}</title></rect>` +
+            svg += `<rect class="g-barra" x="${bx}" y="${top}" width="${bw - 3}" height="${Math.max(h, 1)}" rx="${Math.min(8, (bw - 3) / 2)}" fill="url(#${uid}v${k})" style="--d:${(i * series.length + k) * 55}ms;transform-origin:center ${v < 0 ? "top" : "bottom"}"><title>${escapar(e)}${s.n ? " · " + escapar(s.n) : ""}: ${fmtNum(v, u)}</title></rect>` +
               (et.length * series.length <= (movil ? 8 : 16) && bw >= (movil ? 30 : 24) ? `<text x="${bx + (bw - 3) / 2}" y="${v < 0 ? y(v) + 14 : top - 6}" text-anchor="middle" class="g-val">${numAnim(v, u)}</text>` : "");
           }));
         }
         svg += `<line x1="${izq}" x2="${W - der}" y1="${y(0)}" y2="${y(0)}" class="g-base"/>`;
-        cuerpo = `<svg viewBox="0 0 ${W} ${H}" class="g-svg" role="img" aria-label="${escapar(spec.titulo || "Gráfico")}">${svg}</svg>`;
+        cuerpo = `<svg viewBox="0 0 ${W} ${H}" class="g-svg" role="img" aria-label="${escapar(spec.titulo || "Gráfico")}"><defs>${defs}</defs>${svg}</svg>`;
       }
     }
-    return `<figure class="grafico" data-tipo="${escapar(tipo)}">` +
-      (spec.titulo ? `<figcaption class="g-titulo"><span class="ico-sec" style="--c:#0071ea"></span>${escapar(spec.titulo)}</figcaption>` : "") +
+    // Cambiar el tipo de gráfico con los mismos datos
+    const ICONOS = { barras: "📊", "barras-h": "📶", lineas: "📈", dona: "🍩", torta: "🥧", cifras: "🔢" };
+    const opciones = tipo === "cifras" ? [] : ["barras", "barras-h", "lineas"].concat(nSeries === 1 ? ["dona"] : []);
+    const guardado = Object.assign({}, spec); delete guardado._forzar;
+    return `<figure class="grafico" data-tipo="${escapar(tipo)}" data-spec="${escapar(JSON.stringify(guardado))}">` +
+      `<figcaption class="g-titulo"><span class="g-ico">${ICONOS[tipo] || "📊"}</span><span><b>${escapar(spec.titulo || "Gráfico")}</b>` +
+        (spec.subtitulo ? `<small>${escapar(spec.subtitulo)}</small>` : "") + `</span></figcaption>` +
+      (opciones.length ? `<div class="g-tipos" role="group" aria-label="Tipo de gráfico">${opciones.map((o) =>
+        `<button type="button" data-g-tipo="${o}" class="${o === tipo ? "activo" : ""}" title="${{ barras: "Barras", "barras-h": "Barras horizontales", lineas: "Líneas", dona: "Dona" }[o]}">${ICONOS[o]}</button>`).join("")}</div>` : "") +
       cuerpo + leyenda +
       `<div class="g-pie"><span class="g-fuente">${spec.fuente ? `Fuente: ${escapar(spec.fuente)}` : "Fuente no indicada"}` +
         (spec.enlace ? ` · <a href="${escapar(spec.enlace)}" target="_blank" rel="noopener">ver fuente ↗</a>` : "") +
@@ -280,7 +307,8 @@
     if (g.classList.contains("animado")) return;
     g.classList.add("animado");
     g.querySelectorAll(".g-num").forEach(contar);
-    g.querySelectorAll(".g-seg").forEach((s) => { setTimeout(() => { s.style.strokeDasharray = `${s.dataset.pct} ${100 - s.dataset.pct}`; }, 30); });
+    const segs = g.querySelectorAll(".g-seg"), hueco = segs.length > 1 ? 0.7 : 0;   // pequeña separación entre segmentos
+    segs.forEach((s) => { const p = +s.dataset.pct; setTimeout(() => { s.style.strokeDasharray = `${Math.max(p - hueco, 0)} ${100 - p + hueco}`; }, 30); });
   }
   const observadorGraficos = "IntersectionObserver" in window
     ? new IntersectionObserver((ents) => ents.forEach((en) => { if (en.isIntersecting) { animarGrafico(en.target); observadorGraficos.unobserve(en.target); } }), { threshold: 0.35 })
@@ -306,8 +334,8 @@
       const spec = graficoDesdeTabla(t); if (!spec) return;
       // Solo se ofrece graficar una tabla si sus números coinciden con la información real del asistente
       const v = verificarDatos(spec, contextoVigente);
-      if (v.estado !== "contexto") return;
-      spec._sello = "✅ Datos verificados con la información del asistente";
+      if (v.estado !== "contexto" && v.estado !== "usuario") return;
+      spec._sello = v.estado === "usuario" ? "✅ Datos que entregaste" : "✅ Datos verificados con la información del asistente";
       t.dataset.grafico = "1";
       const b = document.createElement("button");
       b.type = "button"; b.className = "chip g-desde-tabla"; b.textContent = "📊 Ver como gráfico";
@@ -328,7 +356,7 @@
       const bloque = a.closest("li") ? a.closest("ul, ol") : a.closest("p, h4, div.nota") || a;
       const textoCerca = normalizar((a.closest("li, p") || a).textContent);
       const card = document.createElement("div");
-      card.className = "video-yt verificando";
+      card.className = "video-yt verificando"; card.dataset.video = id;
       card.innerHTML = `<div class="yt-pie">🔎 Verificando el video en YouTube…</div>`;
       (ultimoDe.get(bloque) || bloque).after(card); ultimoDe.set(bloque, card);
       verificarVideo(id).then((info) => {
@@ -386,6 +414,14 @@
     const b = g.querySelector(".g-ver-datos"); if (!b || b.dataset.ok) return;
     b.dataset.ok = "1";
     b.addEventListener("click", () => { const t = g.querySelector(".g-tabla"); t.hidden = !t.hidden; b.textContent = t.hidden ? "Ver datos" : "Ocultar datos"; });
+    // Cambiar el tipo de gráfico (mismos datos verificados)
+    g.querySelectorAll("[data-g-tipo]").forEach((bt) => bt.addEventListener("click", () => {
+      let spec; try { spec = JSON.parse(g.dataset.spec); } catch (e) { return; }
+      spec.tipo = bt.dataset.gTipo; spec._forzar = true;
+      const div = document.createElement("div"); div.innerHTML = graficoHTML(spec);
+      const nuevo = div.firstElementChild; if (!nuevo) return;
+      g.replaceWith(nuevo); conectarGrafico(nuevo); requestAnimationFrame(() => animarGrafico(nuevo));
+    }));
   }
 
   /* Enlaces automáticos: cuando una respuesta nombra una ley, un decreto o un documento
@@ -644,14 +680,21 @@
 
   /* Las respuestas del asistente se muestran DESDE SU INICIO (la persona baja
      leyendo); los mensajes propios y el indicador de escritura van al final. */
+  let contadorMsg = 0;
   function agregar(rol, html, { texto = "", guardar = true, alFinal = false } = {}) {
     if (!enInicio) ocultarBienvenida();   // durante las preguntas iniciales se mantiene la portada arriba
     if (rol === "bot" && guardar) html = enlazar(html);   // leyes y documentos oficiales con enlace
     const div = document.createElement("div");
     div.className = `msg ${rol}`;
     div.innerHTML = rol === "bot" ? `${AVATAR}<div class="burbuja">${html}</div>` : `<div class="burbuja">${html}</div>`;
+    div.dataset.id = "m" + (++contadorMsg);
     el.mensajes.appendChild(div);
     if (rol === "bot") activarVisuales(div);   // gráficos animados, videos y "Ver como gráfico" en tablas
+    // Respuestas con contenido: botones para descargar en PDF o compartir por WhatsApp / correo
+    if (rol === "bot" && guardar && !enInicio && !div.querySelector('[data-accion="wizard"]')) {
+      const b = div.querySelector(".burbuja");
+      if (b.textContent.length > 220 || b.querySelector(".grafico, table")) b.insertAdjacentHTML("beforeend", accionesMsg());
+    }
     if (enInicio && !el.mensajes.querySelector(".msg.user")) {
       el.chat.scrollTop = 0;   // al abrir, la portada se ve desde arriba; la persona baja a responder
     } else if (rol === "user" || alFinal) {
@@ -776,6 +819,9 @@
     "  Tipos: barras, barras-h (nombres largos o muchas categorías), lineas (evolución en el tiempo), torta o dona (partes de un total), " +
     'cifras (1 a 4 indicadores destacados: {"tipo":"cifras","titulo":"…","cifras":[{"etiqueta":"Asistencia","valor":87.5,"unidad":"%"}],"fuente":"…"}). ' +
     "NUNCA inventes ni estimes cifras para un gráfico: si no tienes datos reales con fuente, no hagas gráficos.\n" +
+    "- Si la persona PIDE un gráfico, diséñalo: elige el tipo que mejor comunica la idea, escribe un \"titulo\" claro y un \"subtitulo\" breve (qué muestra, período, unidad), " +
+    "etiquetas cortas y en orden lógico (tiempo en orden cronológico; categorías de mayor a menor) y explica en 2 o 3 frases qué muestra. " +
+    "Si te entrega sus datos, usa exactamente esos números (fuente: \"Datos entregados por quien consulta\"). Si no hay datos en su mensaje ni en el CONTEXTO, pídeselos antes de graficar.\n" +
     "- Videos de YouTube: recomienda uno SOLO si lo encontraste en la búsqueda de esta respuesta (nunca de memoria) y escríbelo como [título del video](https://www.youtube.com/watch?v=ID). " +
     "Nombra el canal EXACTAMENTE como aparece en YouTube; no digas que es del MINEDUC, CPEIP u otra institución salvo que sea su canal oficial. " +
     "El chat consulta a YouTube el título y el canal reales: si el video no existe lo quita, y si la atribución no coincide lo advierte. Si no encontraste un video confiable, no recomiendes ninguno.\n" +
@@ -825,6 +871,7 @@
     const fuentes = buscar(consulta, 3).map((x) => x.ficha);
     const usoWeb = /fuentes externas sugeridas/i.test(datos.respuesta);
     contextoVigente = contexto;   // para verificar que los números de los gráficos sean reales
+    datosUsuarioVigentes = [consulta].concat(historial.filter((m) => m.rol === "user").slice(-4).map((m) => m.texto || "")).join("\n");
     return markdown(datos.respuesta) +
       (fuentes.length ? `<div class="pie-msg">${fuentes.slice(0, 2).map(etiquetaFuente).join("")}</div>` : "") +
       `<div class="nota">${usoWeb
@@ -1568,6 +1615,25 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
 
     if (!yaMostrado) agregarUsuario(texto);
 
+    // "Envíalo por WhatsApp", "mándalo por correo", "descárgalo en PDF": se ofrece sobre la última respuesta con contenido
+    // Debe referirse a algo ya entregado ("envíalo", "comparte esto", "la respuesta") y no a redactar algo nuevo
+    const refiereAnterior = /\b(envi|mand|compart|reenvi|pas)\w*(lo|la|los|las|melo|mela)\b|\b(esto|esta|este|eso|esa|ese|la respuesta|el material|la informacion|el documento|el resumen|lo anterior|la anterior)\b/.test(n);
+    const pideEnviar = refiereAnterior && /\b(envi|mand|compart|reenvi|pas)\w*/.test(n) && /\b(whats ?app|wsp|wasap|wa|correo|e-?mail|mail|gmail|outlook)\b/.test(n);
+    const pidePDF = /\bpdf\b/.test(n) && /\b(descarg|baj|export|guard|imprim|pas|conviert|dame|quiero|necesito|genera)\w*/.test(n) && (refiereAnterior || n.split(" ").length <= 6);
+    if (pideEnviar || pidePDF) {
+      const objetivo = [...el.mensajes.querySelectorAll(".msg.bot")].reverse().find((m) => m.querySelector(".acciones-msg"));
+      if (objetivo) {
+        const canal = /whats|wsp|wasap|\bwa\b/.test(n) ? "WhatsApp" : /correo|mail|gmail|outlook/.test(n) ? "correo" : "PDF";
+        agregar("bot", `<p>Listo 👍 Puedes ${canal === "PDF" ? "descargar en <strong>PDF</strong>" : "enviar por <strong>" + canal + "</strong>"} la respuesta «${escapar(tituloMsg(objetivo))}». ` +
+          `Elige una opción (se abrirá ${canal === "PDF" ? "la ventana para guardar el PDF" : "la aplicación para que elijas el destinatario"}):</p>` +
+          accionesMsg(objetivo.dataset.id) +
+          `<div class="nota">🔒 Antes de enviar, revisa que no incluya datos personales de estudiantes, familias o funcionarios.</div>`, { guardar: false });
+        return;
+      }
+      agregar("bot", `<p>Aún no hay una respuesta para ${pidePDF ? "descargar" : "enviar"}. Hazme tu consulta o pide el material, y luego usa los botones <strong>📄 PDF</strong>, <strong>WhatsApp</strong> o <strong>✉️ Correo</strong> que aparecen bajo la respuesta.</p>`);
+      return;
+    }
+
     // "Diseñar un material" a secas abre el paso a paso; si ya viene con detalles ("ayúdame a crear una guía de fracciones
     // para 5° básico"), se responde directamente y el paso a paso queda como opción
     if (RE_WIZARD.test(n) && n.split(" ").length <= 6) { iniciarWizard(); return; }
@@ -1649,6 +1715,208 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     } finally {
       ocupado = false; el.enviar.disabled = false; el.entrada.focus();
     }
+  }
+
+  /* ================================================================
+     9b. COMPARTIR (WhatsApp, correo, copiar) Y DESCARGAR EN PDF
+     ================================================================ */
+  const ICONO_WA = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2a8.2 8.2 0 0 1-4.2-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1-.7.8-.8 1-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.2-.4.2-.4.7-1.3.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3 3 3 0 0 0-.9 2.2 5.2 5.2 0 0 0 1.1 2.7 11.8 11.8 0 0 0 4.5 4c1.7.7 2.3.8 3.1.7a2.7 2.7 0 0 0 1.8-1.3 2.2 2.2 0 0 0 .2-1.3c-.1-.1-.3-.2-.5-.3z"/></svg>`;
+  const accionesMsg = (ref) => `<div class="acciones-msg" role="group" aria-label="Compartir o descargar esta respuesta">` +
+    `<button type="button" class="acc" data-accion="msg-pdf"${ref ? ` data-ref="${ref}"` : ""}>📄 PDF</button>` +
+    `<button type="button" class="acc acc-wa" data-accion="msg-wa"${ref ? ` data-ref="${ref}"` : ""}>${ICONO_WA} WhatsApp</button>` +
+    `<button type="button" class="acc" data-accion="msg-mail"${ref ? ` data-ref="${ref}"` : ""}>✉️ Correo</button>` +
+    `<button type="button" class="acc" data-accion="msg-copiar"${ref ? ` data-ref="${ref}"` : ""}>📋 Copiar</button>` +
+    (navigator.share ? `<button type="button" class="acc" data-accion="msg-compartir"${ref ? ` data-ref="${ref}"` : ""}>↗️ Más</button>` : "") + `</div>`;
+
+  function aviso(texto) {   // mensaje breve flotante
+    const t = document.createElement("div"); t.className = "aviso-flotante"; t.textContent = texto;
+    document.body.appendChild(t); setTimeout(() => t.classList.add("visible"), 10);
+    setTimeout(() => { t.classList.remove("visible"); setTimeout(() => t.remove(), 400); }, 3200);
+  }
+  // Contenido de una respuesta, sin botones ni elementos de la interfaz
+  function contenidoMsg(msg) {
+    const c = msg.querySelector(".burbuja").cloneNode(true);
+    c.querySelectorAll(".acciones-msg, .chips, .g-tipos, .g-ver-datos, .g-desde-tabla, .ver-prompt, .video-yt.verificando, .btn-copiar, .escribiendo").forEach((x) => x.remove());
+    return c;
+  }
+  function tituloMsg(msg) {
+    const h = msg.querySelector(".burbuja h3, .burbuja h4, .burbuja .g-titulo b");
+    if (h && h.textContent.trim().length > 3) return h.textContent.replace(/^[^\wÁÉÍÓÚÑáéíóúñ¿¡]+/, "").trim().slice(0, 90);
+    const q = preguntaDe(msg); return q ? corto(q, 90) : "Respuesta del Asistente IA";
+  }
+  function preguntaDe(msg) {   // la consulta que originó la respuesta
+    let p = msg.previousElementSibling;
+    while (p && !p.classList.contains("user")) p = p.previousElementSibling;
+    return p ? p.textContent.trim() : "";
+  }
+  function resumenGrafico(g, fuerte) {
+    const t = (g.querySelector(".g-titulo b") || {}).textContent || "Gráfico";
+    const filas = [...g.querySelectorAll(".g-tabla tr")].slice(1).map((tr) => [...tr.children].map((c) => c.textContent.trim()));
+    const gf = g.querySelector(".g-fuente"), cf = gf ? gf.cloneNode(true) : null;
+    if (cf) cf.querySelectorAll(".g-sello, a").forEach((x) => x.remove());
+    const fuente = cf ? cf.textContent.replace(/·\s*$/, "").trim() : "";
+    return `📊 ${fuerte ? "*" + t + "*" : t}\n` + filas.map((f) => `• ${f[0]}: ${f.slice(1).join(" / ")}`).join("\n") + (fuente ? `\n(${fuente})` : "");
+  }
+  // Convierte una respuesta en texto ordenado (negrita con * para WhatsApp)
+  function textoPlano(raiz, wa) {
+    const fuerte = (t) => (t.trim() ? (wa ? `*${t.trim()}*` : t.trim()) : "");
+    const rec = (n) => {
+      if (n.nodeType === 3) return n.textContent.replace(/\s+/g, " ");
+      if (n.nodeType !== 1) return "";
+      if (n.matches("button, svg, script, style, .avatar, .pie-msg, .g-tabla, .chips")) return "";
+      if (n.classList.contains("grafico")) return "\n" + resumenGrafico(n, wa) + "\n";
+      if (n.classList.contains("video-yt")) {
+        const tt = n.querySelector(".yt-pie strong"), canal = n.querySelector(".yt-canal");
+        return tt ? `\n▶️ ${tt.textContent.trim()}${canal ? " — " + canal.textContent.replace(/.*Canal:\s*/, "Canal: ").trim() : ""}${n.dataset.video ? " https://youtu.be/" + n.dataset.video : ""}\n` : "";
+      }
+      const tag = n.tagName.toLowerCase(), hijos = [...n.childNodes].map(rec).join("");
+      switch (tag) {
+        case "h3": case "h4": case "figcaption": return `\n\n${fuerte(hijos)}\n`;
+        case "p": case "div": case "section": case "figure": return hijos.trim() ? `\n${hijos.trim()}\n` : "";
+        case "li": return `\n• ${hijos.trim()}`;
+        case "ul": case "ol": return `\n${hijos}\n`;
+        case "br": return "\n";
+        case "strong": case "b": return fuerte(hijos) ? " " + fuerte(hijos) + " " : "";
+        case "tr": return "\n" + [...n.children].map((c) => rec(c).trim()).join(" | ");
+        case "table": return `\n${hijos}\n`;
+        case "pre": return `\n${n.textContent}\n`;
+        case "a": { const h = n.getAttribute("href") || ""; const t = hijos.trim(); return /^https?:/.test(h) && !t.includes(h) ? `${t} (${h})` : t; }
+        default: return hijos;
+      }
+    };
+    return rec(raiz).replace(/[ \t]+\n/g, "\n").replace(/\n[ \t]+/g, "\n").replace(/ {2,}/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  }
+  function textoParaEnviar(msg, wa, limite) {
+    const titulo = tituloMsg(msg);
+    let cuerpo = textoPlano(contenidoMsg(msg), wa);
+    // Si el texto ya empieza con el título, no se repite
+    const sinMarcas = (t) => normalizar(t.replace(/[*_]/g, ""));
+    const primera = cuerpo.split("\n")[0];
+    if (sinMarcas(primera) === sinMarcas(titulo)) cuerpo = cuerpo.slice(primera.length).trim();
+    const enc = wa ? `*${titulo}*\n_Asistente IA · SLEP Andalién Sur_\n\n` : `${titulo}\nAsistente IA Educativa · SLEP Andalién Sur\n\n`;
+    const pie = wa ? "\n\n_Elaborado con apoyo de IA. Verificar antes de usar._" : "\n\n—\nElaborado con apoyo de inteligencia artificial (Asistente IA Educativa, SLEP Andalién Sur). Verificar antes de usar.";
+    let txt = enc + cuerpo;
+    if (limite && txt.length > limite) txt = txt.slice(0, limite).replace(/\s+\S*$/, "") + "…\n\n(Texto resumido: descarga el PDF para ver la versión completa.)";
+    return txt + pie;
+  }
+  async function copiarTexto(t) {
+    try { await navigator.clipboard.writeText(t); return true; } catch (e) {
+      const ta = document.createElement("textarea"); ta.value = t; document.body.appendChild(ta); ta.select();
+      const ok = document.execCommand("copy"); ta.remove(); return ok;
+    }
+  }
+  function compartirWhatsApp(msg) {
+    window.open("https://wa.me/?text=" + encodeURIComponent(textoParaEnviar(msg, true, 3500)), "_blank", "noopener");
+  }
+  function compartirCorreo(msg) {
+    // Los programas de correo aceptan textos de largo limitado en un enlace: si es largo, se resume y se sugiere adjuntar el PDF
+    location.href = "mailto:?subject=" + encodeURIComponent(tituloMsg(msg) + " · SLEP Andalién Sur") + "&body=" + encodeURIComponent(textoParaEnviar(msg, false, 1700));
+  }
+  async function compartirNativo(msg) {
+    try { await navigator.share({ title: tituloMsg(msg), text: textoParaEnviar(msg, false, 6000) }); } catch (e) { /* cancelado */ }
+  }
+
+  /* PDF: documento formal (membrete, datos, contenido ordenado y pie) que se guarda con «Guardar como PDF» */
+  function documentoPDF(msg) {
+    const c = contenidoMsg(msg);
+    c.querySelectorAll(".grafico").forEach((g) => {   // gráficos en su estado final
+      g.classList.add("animado");
+      const segs = g.querySelectorAll(".g-seg"), hueco = segs.length > 1 ? 0.7 : 0;
+      segs.forEach((s) => { const p = +s.dataset.pct; s.style.strokeDasharray = `${Math.max(p - hueco, 0)} ${100 - p + hueco}`; });
+      g.querySelectorAll(".g-num").forEach((n) => { n.textContent = fmtNum(+n.dataset.v, n.dataset.u); });
+    });
+    c.querySelectorAll(".video-yt").forEach((v) => {   // videos → referencia escrita con enlace
+      const tt = v.querySelector(".yt-pie strong"), canal = v.querySelector(".yt-canal"), id = v.dataset.video;
+      const p = document.createElement("p"); p.className = "pdf-video";
+      p.innerHTML = tt ? `▶️ <strong>Video:</strong> ${escapar(tt.textContent)}${canal ? " — " + escapar(canal.textContent.replace(/.*Canal:\s*/, "Canal: ")) : ""}` +
+        (id ? ` — <a href="https://www.youtube.com/watch?v=${id}">youtube.com/watch?v=${id}</a>` : "") : "";
+      v.replaceWith(p);
+    });
+    c.querySelectorAll(".pie-msg").forEach((pm) => {   // etiquetas de fuente → línea formal
+      const fuentes = [...pm.querySelectorAll(".fuente")].map((f) => f.textContent.replace(/^📘\s*/, "").trim()).filter(Boolean);
+      const q = document.createElement("p"); q.className = "pdf-fuentes";
+      q.innerHTML = fuentes.length ? `<strong>Fuentes consultadas:</strong> ${fuentes.map(escapar).join("; ")}.` : "";
+      pm.replaceWith(q);
+    });
+    const titulo = tituloMsg(msg), pregunta = preguntaDe(msg), p = leerPerfil() || {};
+    const fecha = new Date().toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const base = new URL(".", location.href).href;
+    const filaMeta = (k, v) => (v ? `<tr><th>${k}</th><td>${escapar(v)}</td></tr>` : "");
+    return `<!DOCTYPE html><html lang="es" data-theme="light"><head><meta charset="UTF-8"><base href="${base}"><title>${escapar(titulo)}</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="estilos.css">
+<style>
+  @page { size: A4; margin: 16mm 15mm 20mm; @bottom-right { content: "Página " counter(page) " de " counter(pages); font: 8pt 'Plus Jakarta Sans', sans-serif; color: #7a8696; } }
+  html, body { background: #fff !important; height: auto !important; overflow: visible !important; display: block !important; }
+  body { margin: 0; color: #1d2633; font: 10.5pt/1.55 'Plus Jakarta Sans', system-ui, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .doc-cab { display: flex; align-items: center; gap: 14px; padding-bottom: 10px; position: relative; }
+  .doc-cab::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 4px; border-radius: 4px;
+    background: linear-gradient(90deg, #0071ea 0 20%, #3abff0 20% 40%, #90d039 40% 60%, #f8d63c 60% 80%, #ff3c4c 80% 100%); }
+  .doc-cab img { height: 50px; width: auto; }
+  .doc-cab strong { display: block; font-size: 11.5pt; color: #0b2a55; }
+  .doc-cab span { font-size: 8.5pt; color: #5a6678; }
+  h1.doc-titulo { color: #0071ea; font-size: 19pt; line-height: 1.2; margin: 18px 0 10px; }
+  table.doc-meta { width: 100%; border-collapse: collapse; margin: 0 0 12px; font-size: 9pt; }
+  table.doc-meta th { text-align: left; width: 28%; color: #5a6678; font-weight: 700; padding: 4px 8px; background: #f3f7fd; border: 1px solid #e2e9f3; }
+  table.doc-meta td { padding: 4px 8px; border: 1px solid #e2e9f3; }
+  .doc-consulta { background: #eef7ff; border-left: 4px solid #3abff0; border-radius: 8px; padding: 9px 13px; margin: 0 0 16px; font-size: 10pt; }
+  .doc-cuerpo { background: none !important; box-shadow: none !important; padding: 0 !important; border: 0 !important; max-width: none !important; }
+  .doc-cuerpo h3 { font-size: 13pt; color: #0b2a55; margin: 16px 0 6px; }
+  .doc-cuerpo h4.titulo-sec { break-after: avoid; }
+  .doc-cuerpo p, .doc-cuerpo li { orphans: 3; widows: 3; }
+  .doc-cuerpo table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 9.5pt; break-inside: avoid; }
+  .doc-cuerpo th { background: #0071ea; color: #fff; text-align: left; padding: 6px 8px; }
+  .doc-cuerpo td { border: 1px solid #dfe6f0; padding: 5px 8px; }
+  .doc-cuerpo tr:nth-child(even) td { background: #f7faff; }
+  .doc-cuerpo .grafico, .doc-cuerpo .pei-bloque, .doc-cuerpo .nota, .doc-cuerpo .bloque-codigo { break-inside: avoid; }
+  .doc-cuerpo .grafico { box-shadow: none; background: #fff; }
+  .doc-cuerpo .g-barra, .doc-cuerpo .g-cifra, .doc-cuerpo .g-punto { transform: none !important; opacity: 1 !important; transition: none !important; }
+  .doc-cuerpo .g-val, .doc-cuerpo .g-area { opacity: 1 !important; transition: none !important; }
+  .doc-cuerpo .g-linea { stroke-dashoffset: 0 !important; transition: none !important; }
+  .doc-cuerpo .g-seg { transition: none !important; }
+  .doc-cuerpo a { color: #0071ea; word-break: break-all; }
+  .doc-cuerpo a.ref-oficial::after { content: ""; }
+  .doc-cuerpo pre { white-space: pre-wrap; }
+  .pdf-fuentes { font-size: 9pt; color: #5a6678; border-top: 1px solid #e2e9f3; padding-top: 6px; margin-top: 14px; }
+  .pdf-video { font-size: 9.5pt; }
+  .doc-aviso { margin-top: 20px; padding: 10px 13px; border: 1px solid #e2e9f3; border-radius: 10px; background: #fbfcfe; font-size: 8.5pt; color: #5a6678; break-inside: avoid; }
+  .doc-pie { position: fixed; bottom: -12mm; left: 0; right: 0; font-size: 8pt; color: #7a8696; border-top: 1px solid #e2e9f3; padding-top: 4px; }
+  @media screen { body { max-width: 190mm; margin: 0 auto; padding: 14mm 12mm; box-shadow: 0 0 20px rgba(0,0,0,.12); } .doc-pie { position: static; margin-top: 18px; } }
+</style></head><body>
+<header class="doc-cab"><img src="logo-slep.png" alt="SLEP Andalién Sur"><div><strong>Servicio Local de Educación Pública Andalién Sur</strong><span>Asistente IA Educativa · Documento de trabajo</span></div></header>
+<h1 class="doc-titulo">${escapar(titulo)}</h1>
+<table class="doc-meta">${filaMeta("Fecha", fecha)}${filaMeta("Elaborado para", [p.rol && ROLES[p.rol] ? ROLES[p.rol].nombre : "", p.cargo].filter(Boolean).join(" · "))}${filaMeta("Establecimiento o alcance", [p.establecimiento, p.alcance].filter(Boolean).join(" · "))}</table>
+${pregunta ? `<div class="doc-consulta"><strong>Consulta:</strong> ${escapar(pregunta)}</div>` : ""}
+<main class="burbuja doc-cuerpo">${c.innerHTML}</main>
+<section class="doc-aviso"><strong>Nota:</strong> documento elaborado con apoyo de inteligencia artificial mediante el Asistente IA Educativa del SLEP Andalién Sur. Su contenido es una propuesta que debe ser revisada por la persona responsable antes de usarse; verifique datos, normativa y fuentes. No incluye datos personales de estudiantes, familias ni funcionarios (Ley N° 21.719).</section>
+<footer class="doc-pie">SLEP Andalién Sur · Asistente IA Educativa · ${escapar(fecha)}</footer>
+<script>
+  (document.fonts ? document.fonts.ready : Promise.resolve()).then(function () { setTimeout(function () { window.focus(); window.print(); }, 350); });
+<\/script></body></html>`;
+  }
+  function descargarPDF(msg) {
+    const html = documentoPDF(msg);
+    aviso("Se abrirá la ventana para imprimir: elige «Guardar como PDF».");
+    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (ios) {   // en iPhone/iPad se abre en una pestaña: Compartir → Imprimir → Guardar como PDF
+      const w = window.open("", "_blank");
+      if (w) { w.document.open(); w.document.write(html); w.document.close(); return; }
+    }
+    const f = document.createElement("iframe");
+    f.className = "marco-impresion"; f.setAttribute("aria-hidden", "true");
+    document.body.appendChild(f);
+    f.contentWindow.document.open(); f.contentWindow.document.write(html); f.contentWindow.document.close();
+    setTimeout(() => f.remove(), 120000);
+  }
+  // Mensaje del chat al que corresponde un botón (el mismo, o el indicado con data-ref)
+  const msgDe = (b) => (b.dataset.ref ? el.mensajes.querySelector(`.msg[data-id="${b.dataset.ref}"]`) : b.closest(".msg"));
+  async function accionMensaje(accion, b) {
+    const msg = msgDe(b); if (!msg) return;
+    if (accion === "msg-pdf") descargarPDF(msg);
+    else if (accion === "msg-wa") compartirWhatsApp(msg);
+    else if (accion === "msg-mail") compartirCorreo(msg);
+    else if (accion === "msg-compartir") compartirNativo(msg);
+    else if (accion === "msg-copiar") { const ok = await copiarTexto(textoParaEnviar(msg, false)); aviso(ok ? "✅ Texto copiado" : "No se pudo copiar"); }
   }
 
   /* ================================================================
@@ -1873,6 +2141,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     const b = e.target.closest("[data-accion]");
     if (!b) return;
     const { accion, valor } = b.dataset;
+    if (accion.startsWith("msg-")) { accionMensaje(accion, b); return; }   // PDF, WhatsApp, correo, copiar
     if (accion === "preguntar") procesar(valor);
     else if (accion === "wizard-iniciar") { cerrarMenu(); agregarUsuario("Diseñar material con IA"); iniciarWizard(); }
     else if (accion === "wizard" && wizard) { agregarUsuario(b.textContent.trim()); avanzarWizard(valor); }

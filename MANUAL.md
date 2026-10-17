@@ -143,6 +143,14 @@ Si los documentos del asistente no responden la consulta, la IA puede buscar en 
 - **Videos de YouTube (verificados)**: el chat consulta a YouTube el título y el **canal real** de cada video (oEmbed). Si el video no existe o no está disponible, lo tacha y avisa; si la respuesta lo atribuye a una institución distinta del canal real, muestra una advertencia. Se reproduce en el chat (youtube-nocookie).
 - **Imágenes**: `![descripción](https://…)` en una línea propia. Si la imagen no carga, se oculta.
 
+## 5e. Compartir y descargar en PDF
+
+- Bajo cada respuesta con contenido aparecen los botones **📄 PDF**, **WhatsApp**, **✉️ Correo**, **📋 Copiar** y, en celulares, **↗️ Más** (menú para compartir del teléfono).
+- **WhatsApp y correo** abren la aplicación con el texto ordenado (títulos, listas, datos de los gráficos y enlaces) para que la persona elija el destinatario. Si el texto es muy largo se resume y se sugiere enviar el PDF.
+- También se puede escribir en el chat «envíalo por WhatsApp», «mándalo por correo» o «descárgalo en PDF».
+- **PDF:** documento formal en tamaño A4 con membrete del SLEP, título, fecha, rol/cargo, la consulta, el contenido (con gráficos y tablas), fuentes consultadas, nota sobre el uso de IA y número de página. Se guarda con «Guardar como PDF» en la ventana de impresión (en iPhone: Compartir → Imprimir → Guardar).
+- **Gráficos a pedido:** si la persona entrega sus datos y pide un gráfico, la IA lo diseña con esos números (sello «Gráfico elaborado con los datos que entregaste»). Cada gráfico permite cambiar el tipo (barras, horizontales, líneas, dona).
+
 ## 6. Registro de cambios
 
 | Fecha | Cambio | Responsable |
