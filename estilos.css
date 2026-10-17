@@ -582,3 +582,6 @@ body.con-vista-pdf { overflow: hidden; }
   .pdf-lienzo .pdf-hoja { box-shadow: none !important; padding: 0 !important; width: auto !important; }
   @page { size: A4; margin: 16mm 15mm 18mm; }
 }
+.pdf-alternativas { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+.pdf-alternativas button { border: 0; border-radius: 11px; padding: 9px 13px; font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer; background: #fff; color: #1d2633; display: inline-flex; align-items: center; gap: 6px; }
+.pdf-alternativas button:first-child { background: #25d366; color: #fff; }

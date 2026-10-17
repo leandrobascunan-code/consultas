@@ -214,7 +214,8 @@
       // Degradados: barras verticales, horizontales y área bajo las líneas
       defs = series.map((s, k) => `<linearGradient id="${uid}v${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${aclarar(s.c, .38)}"/><stop offset="1" stop-color="${s.c}"/></linearGradient>` +
         `<linearGradient id="${uid}h${k}" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${s.c}"/><stop offset="1" stop-color="${aclarar(s.c, .38)}"/></linearGradient>` +
-        `<linearGradient id="${uid}a${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.c}" stop-opacity=".32"/><stop offset="1" stop-color="${s.c}" stop-opacity="0"/></linearGradient>`).join("");
+        `<linearGradient id="${uid}a${k}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${s.c}" stop-opacity=".32"/><stop offset="1" stop-color="${s.c}" stop-opacity="0"/></linearGradient>`).join("") +
+        `<linearGradient id="${uid}hd" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f0a500"/><stop offset="1" stop-color="#f8d63c"/></linearGradient>`;   // barra destacada
       tabla = `<table><tr><th></th>${series.map((s) => `<th>${escapar(s.n || "Valor")}</th>`).join("")}</tr>` +
         et.map((e, i) => `<tr><td>${escapar(e)}</td>${series.map((s) => `<td>${s.d[i] === null ? "—" : fmtNum(s.d[i], u)}</td>`).join("")}</tr>`).join("") + `</table>`;
       if (series.length > 1 || tipo === "lineas") leyenda = `<div class="g-leyenda">${series.map((s) => `<span><i style="background:${s.c}"></i>${escapar(s.n)}</span>`).join("")}</div>`;
@@ -251,7 +252,7 @@
           series.forEach((s, k) => {
             const v = s.d[i]; if (v === null) return;
             const y = y0 + alto * 0.14 + k * bw, xa = x(Math.min(0, v)), w = Math.abs(x(v) - x(0));
-            svg += `<rect class="g-barra g-barra-h" x="${xa}" y="${y}" width="${Math.max(w, 1)}" height="${bw - 2}" rx="${Math.min(7, (bw - 2) / 2)}" fill="url(#${uid}h${k})" style="--d:${(i * series.length + k) * 45}ms;transform-origin:${v < 0 ? "right" : "left"} center"><title>${escapar(e)}: ${fmtNum(v, u)}</title></rect>` +
+            svg += `<rect class="g-barra g-barra-h" x="${xa}" y="${y}" width="${Math.max(w, 1)}" height="${bw - 2}" rx="${Math.min(7, (bw - 2) / 2)}" fill="url(#${uid}${spec.destacar && e === spec.destacar ? "hd" : "h" + k})" style="--d:${(i * series.length + k) * 45}ms;transform-origin:${v < 0 ? "right" : "left"} center"><title>${escapar(e)}: ${fmtNum(v, u)}</title></rect>` +
               `<text x="${x(v) + (v < 0 ? -6 : 6)}" y="${y + bw / 2 + 2}" text-anchor="${v < 0 ? "end" : "start"}" class="g-val">${numAnim(v, u)}</text>`;
           });
         });
@@ -708,7 +709,10 @@
     // Respuestas con contenido: botones para descargar en PDF o compartir por WhatsApp / correo
     if (rol === "bot" && guardar && !enInicio && !div.querySelector('[data-accion="wizard"]')) {
       const b = div.querySelector(".burbuja");
-      if (b.textContent.length > 220 || b.querySelector(".grafico, table")) b.insertAdjacentHTML("beforeend", accionesMsg());
+      if (b.textContent.length > 220 || b.querySelector(".grafico, table")) {
+        b.insertAdjacentHTML("beforeend", accionesMsg());
+        if (!window.html2pdf) setTimeout(() => cargarHtml2pdf().catch(() => {}), 2500);   // precarga: el PDF sale más rápido
+      }
     }
     if (enInicio && !el.mensajes.querySelector(".msg.user")) {
       el.chat.scrollTop = 0;   // al abrir, la portada se ve desde arriba; la persona baja a responder
@@ -837,7 +841,8 @@
     "- Si la persona PIDE un gráfico, diséñalo: elige el tipo que mejor comunica la idea, escribe un \"titulo\" claro y un \"subtitulo\" breve (qué muestra, período, unidad), " +
     "etiquetas cortas y en orden lógico (tiempo en orden cronológico; categorías de mayor a menor) y explica en 2 o 3 frases qué muestra. " +
     "Si te entrega sus datos, usa exactamente esos números (fuente: \"Datos entregados por quien consulta\") y no agregues años, períodos ni datos que no indicó. " +
-    "Si no hay datos en su mensaje ni en el CONTEXTO, pídeselos antes de graficar.\n" +
+    "Si el CONTEXTO ya trae datos numéricos pertinentes (por ejemplo, matrícula, cursos o % PIE del establecimiento), haz el gráfico DE INMEDIATO con ellos, sin preguntar. " +
+    "Solo si no hay datos en su mensaje ni en el CONTEXTO, pídeselos (en una frase, con un ejemplo de cómo escribirlos). Nunca digas que entregas «JSON»: el chat lo muestra como gráfico.\n" +
     "- Videos de YouTube: recomienda uno SOLO si lo encontraste en la búsqueda de esta respuesta (nunca de memoria) y escríbelo como [título del video](https://www.youtube.com/watch?v=ID). " +
     "Nombra el canal EXACTAMENTE como aparece en YouTube; no digas que es del MINEDUC, CPEIP u otra institución salvo que sea su canal oficial. " +
     "El chat consulta a YouTube el título y el canal reales: si el video no existe lo quita, y si la atribución no coincide lo advierte. Si no encontraste un video confiable, no recomiendes ninguno.\n" +
@@ -851,15 +856,28 @@
     "Contextualiza con la realidad socioeconómica, comunitaria y natural indicada (no agregues referencias geográficas que no estén en la especificación). " +
     "Al final agrega una breve sección «Para revisar antes de usar» (2 a 4 puntos: alineación curricular, pertinencia, sesgos) y la declaración de uso de IA.";
 
+  /* Llamada al servicio de IA. Si está saturado («muchas consultas»), espera y reintenta solo (hasta 2 veces);
+     la segunda vez, sin búsqueda web, que es lo que más consume. */
+  const RE_SATURADO = /recibiendo muchas consultas/i;
+  async function consultarAPI(cuerpo) {
+    let intento = 0;
+    for (;;) {
+      const r = await fetch(CONFIG.API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(cuerpo) });   // text/plain: sin preflight CORS
+      const datos = await r.json();
+      if (!datos.ok) throw new Error(datos.error || "Respuesta no válida");
+      if (!RE_SATURADO.test(datos.respuesta || "") || intento >= 2) return datos;
+      intento++;
+      const escribiendo = el.mensajes.querySelector(".robot-pensando strong");
+      if (escribiendo) escribiendo.textContent = "La IA está con muchas consultas: reintento en unos segundos…";
+      await new Promise((ok) => setTimeout(ok, intento === 1 ? 9000 : 16000));
+      if (intento === 2) cuerpo = Object.assign({}, cuerpo, { buscarWeb: false });
+      if (escribiendo) escribiendo.textContent = "Preparando tu respuesta…";
+    }
+  }
+
   /* Elabora un material con la IA a partir de la especificación armada paso a paso */
   async function generarMaterialIA(especificacion) {
-    const r = await fetch(CONFIG.API, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ accion: "consultar", pregunta: especificacion, historial: [], contexto: contextoPerfil() + INSTRUCCION_MATERIAL })
-    });
-    const datos = await r.json();
-    if (!datos.ok) throw new Error(datos.error || "Respuesta no válida");
+    const datos = await consultarAPI({ accion: "consultar", pregunta: especificacion, historial: [], contexto: contextoPerfil() + INSTRUCCION_MATERIAL });
     return datos.respuesta;
   }
 
@@ -871,19 +889,14 @@
         (estDePerfil(leerPerfil()) === estMencionado ? "" : contextoPEI(estMencionado)) : "") +
       INSTRUCCION_ACLARAR;
     // El servidor acepta hasta 16.000 caracteres: se recortan las fichas para que las instrucciones (al final) nunca se pierdan
-    const contexto = fichas.slice(0, Math.max(2000, 15500 - resto.length)) + resto;
-    const previos = historial.slice(-9, -1).map((m) => ({
+    // Consulta más liviana (el servicio gratuito de IA limita la cantidad de texto por minuto)
+    const contexto = fichas.slice(0, Math.max(1500, Math.min(7000, 15500 - resto.length))) + resto;
+    const previos = historial.slice(-7, -1).map((m) => ({
       role: m.rol === "user" ? "user" : "assistant",
-      content: (m.texto || m.html.replace(/<[^>]+>/g, " ")).slice(0, 2000)
+      content: (m.texto || m.html.replace(/<[^>]+>/g, " ")).slice(0, 1200)
     }));
-    const r = await fetch(CONFIG.API, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },   // evita preflight CORS (Manual 5, 7.2)
-      // buscarWeb: si los documentos internos no bastan, la IA puede buscar en fuentes educativas confiables
-      body: JSON.stringify({ accion: "consultar", pregunta: consulta, historial: previos, contexto, buscarWeb: true })
-    });
-    const datos = await r.json();
-    if (!datos.ok) throw new Error(datos.error || "Respuesta no válida");
+    // buscarWeb: si los documentos internos no bastan, la IA puede buscar en fuentes educativas confiables
+    const datos = await consultarAPI({ accion: "consultar", pregunta: consulta, historial: previos, contexto, buscarWeb: true });
     const fuentes = buscar(consulta, 3).map((x) => x.ficha);
     const usoWeb = /fuentes externas sugeridas/i.test(datos.respuesta);
     contextoVigente = contexto;   // para verificar que los números de los gráficos sean reales
@@ -1470,10 +1483,10 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     if (d.variacion !== null) cifras.push({ etiqueta: "Variación de matrícula 2020–2026 (proyectada)", valor: d.variacion, unidad: "%" });
     return cifras.length ? graficoHTML({ tipo: "cifras", titulo: "Datos del establecimiento", cifras, fuente: "Plan Anual Local 2026, SLEP Andalién Sur", _sello: "✅ Datos oficiales del Plan Anual Local" }) : "";
   }
-  function graficoMatricula(lista, titulo) {
+  function graficoMatricula(lista, titulo, destacar) {
     const con = lista.map((e) => ({ e, v: datosPAL(e).matricula })).filter((x) => x.v !== null).sort((a, b) => b.v - a.v);
     if (con.length < 2) return "";
-    return graficoHTML({ tipo: "barras-h", titulo, etiquetas: con.map((x) => x.e.nombre), series: [{ nombre: "Matrícula 2025", datos: con.map((x) => x.v) }],
+    return graficoHTML({ tipo: "barras-h", titulo, subtitulo: "Estudiantes por establecimiento", destacar: destacar || "", etiquetas: con.map((x) => x.e.nombre), series: [{ nombre: "Matrícula 2025", datos: con.map((x) => x.v) }],
       fuente: "Plan Anual Local 2026, SLEP Andalién Sur", _sello: "✅ Datos oficiales del Plan Anual Local" });
   }
 
@@ -1656,6 +1669,18 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     if (RE_PERFIL.test(n)) { iniciarWizard(true); return; }
     if (RE_MIEST.test(n)) { agregar("bot", respuestaMiEstablecimiento()); return; }
     // "¿Qué establecimientos hay en Florida?": lista exacta desde el PAL (sin pasar por la IA)
+    // "Gráfico con los datos de mi establecimiento": cifras del PAL + comparación con la comuna (sin pasar por la IA)
+    const estPropio = estDePerfil(leerPerfil());
+    if (estPropio && /\bgrafic|\bgraf\b|\bchart\b|\bvisualiz/.test(n) && /\b(mi|mis|nuestro|nuestra)\s+(establecimiento|colegio|escuela|liceo|jardin|datos)\b|\bdatos de(l)? (mi )?(establecimiento|colegio)/.test(n)) {
+      const cifras = graficoPAL(estPropio);
+      const deComuna = ESTABLECIMIENTOS.filter((e) => e.comuna && normalizar(e.comuna) === normalizar(estPropio.comuna || ""));
+      const comp = graficoMatricula(deComuna, `Matrícula 2025 en ${estPropio.comuna || "la comuna"}`, estPropio.nombre);
+      if (cifras || comp) {
+        agregar("bot", `<p>Estos son los datos de <strong>${escapar(estPropio.nombre)}</strong> según el Plan Anual Local 2026${comp ? ", y su matrícula comparada con los demás establecimientos de la comuna (destacado en amarillo)" : ""}.</p>` +
+          cifras + comp + `<p>¿Quieres graficar otros datos (asistencia, resultados, convivencia)? Escríbelos, por ejemplo: <em>"marzo 85, abril 88, mayo 90"</em>, y armo el gráfico.</p>`);
+        return;
+      }
+    }
     // "Gráfico de matrícula de Florida": se responde con los datos oficiales del PAL (sin pasar por la IA)
     if (/\bgrafic|\bgraf\b|\bchart\b/.test(n) && /\bmatricula/.test(n)) {
       const com = Object.keys(COMUNAS).find((c) => n.includes(normalizar(c)));
@@ -1957,17 +1982,25 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     }
     return promesaHtml2pdf;
   }
-  async function crearPDF(hoja, partes) {
+  const conLimite = (promesa, ms) => Promise.race([promesa, new Promise((ok) => setTimeout(ok, ms))]);
+  async function crearPDF(hoja, partes, avance) {
+    avance && avance("⏳ Cargando el generador de PDF…");
     await cargarHtml2pdf();
-    if (document.fonts) await document.fonts.ready;
-    await Promise.all([...hoja.querySelectorAll("img")].map((i) => (i.complete ? 0 : new Promise((r) => { i.onload = i.onerror = r; }))));
+    avance && avance("⏳ Armando el documento…");
+    if (document.fonts) await conLimite(document.fonts.ready, 3000);
+    await conLimite(Promise.all([...hoja.querySelectorAll("img")].map((i) => (i.complete ? 0 : new Promise((r) => { i.addEventListener("load", r); i.addEventListener("error", r); })))), 4000);
     fijarEstilosSVG(hoja);
+    // Resolución según el tamaño del documento y el equipo: en celulares una imagen muy grande lo deja pegado
+    const movil = (window.innerWidth || 800) < 700 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const area = Math.max(1, hoja.offsetWidth * hoja.scrollHeight);
+    const escala = Math.max(1, Math.min(movil ? 1.4 : 2, Math.sqrt((movil ? 6e6 : 12e6) / area)));
+    avance && avance("⏳ Creando el PDF…");
     const trabajo = window.html2pdf().set({
       margin: [14, 12, 16, 12], filename: partes.nombre,
-      image: { type: "jpeg", quality: 0.95 },
-      html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", logging: false },
-      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-      pagebreak: { mode: ["css", "legacy"], avoid: [".grafico", "tr", ".pei-bloque", ".doc-aviso", ".nota", "h4", "img", ".doc-consulta"] }
+      image: { type: "jpeg", quality: 0.9 },
+      html2canvas: { scale: escala, useCORS: true, backgroundColor: "#ffffff", logging: false, imageTimeout: 4000 },
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait", compress: true },
+      pagebreak: { mode: ["css"], avoid: [".grafico", ".pei-bloque", ".doc-aviso"] }
     }).from(hoja).toPdf();
     const pdf = await trabajo.get("pdf");
     const total = pdf.internal.getNumberOfPages();
@@ -2007,7 +2040,14 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     try { history.pushState({ vistaPDF: true }, ""); } catch (e) { /* sin historial */ }
     ajustarEscala();
     const actual = vista;
-    crearPDF(v.querySelector(".pdf-hoja"), partes).then((blob) => {
+    const t0 = Date.now(), estado = v.querySelector(".pdf-estado");
+    const avance = (t) => { if (vista === actual) estado.textContent = t; };
+    const reloj = setInterval(() => { if (vista !== actual || actual.blob) return clearInterval(reloj);
+      const s = Math.round((Date.now() - t0) / 1000); if (s >= 4) estado.textContent = estado.textContent.replace(/\s*\(\d+ s\)$/, "") + ` (${s} s)`; }, 1000);
+    // Tiempo máximo: si el equipo tarda demasiado, se ofrecen alternativas en vez de quedar pegado
+    const limite = new Promise((_, mal) => setTimeout(() => mal(new Error("tardó demasiado")), 35000));
+    Promise.race([crearPDF(v.querySelector(".pdf-hoja"), partes, avance), limite]).then((blob) => {
+      clearInterval(reloj);
       if (vista !== actual) return;
       actual.blob = blob;
       v.querySelectorAll(".pdf-botones button").forEach((b) => { b.disabled = false; });
@@ -2017,9 +2057,16 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       const b = destino && v.querySelector(`[data-pdf="${destino}"]`);
       if (b) { b.classList.add("pulso"); b.focus(); if (destino === "mail") mostrarFormCorreo(); }
     }).catch((e) => {
+      clearInterval(reloj);
       if (vista !== actual) return;
-      v.querySelector(".pdf-estado").textContent = `No se pudo crear el PDF (${e.message}). Usa 🖨️ para guardarlo como PDF.`;
-      v.querySelector('[data-pdf="imprimir"]').classList.add("pulso");
+      estado.textContent = `No se pudo crear el PDF (${e.message}).`;
+      // Alternativas: enviar el contenido como texto ordenado, o guardar como PDF desde el navegador
+      const alt = document.createElement("div");
+      alt.className = "pdf-alternativas";
+      alt.innerHTML = `<button type="button" data-pdf="texto-wa">${ICONO_WA} Enviar como texto por WhatsApp</button>` +
+        `<button type="button" data-pdf="texto-mail">✉️ Enviar como texto por correo</button>` +
+        `<button type="button" data-pdf="imprimir">🖨️ Guardar como PDF (imprimir)</button>`;
+      v.querySelector(".pdf-barra").appendChild(alt);
     });
   }
   function ajustarEscala() {
@@ -2121,6 +2168,8 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     if (a === "cerrar") return cerrarVistaPDF();
     if (a === "imprimir") { window.print(); return; }   // la hoja de estilos de impresión muestra solo el documento
     if (a === "mail-cerrar") { vista.el.querySelector(".pdf-correo").hidden = true; return; }
+    if (a === "texto-wa") { compartirWhatsApp(vista.msg); return; }   // alternativas si el PDF no se pudo crear
+    if (a === "texto-mail") { compartirCorreo(vista.msg); return; }
     if (!vista.blob) return;
     b.classList.remove("pulso");
     if (a === "bajar") { bajarPDF(); aviso("⬇️ PDF descargado"); }
