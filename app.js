@@ -847,11 +847,22 @@
     "Nombra el canal EXACTAMENTE como aparece en YouTube; no digas que es del MINEDUC, CPEIP u otra institución salvo que sea su canal oficial. " +
     "El chat consulta a YouTube el título y el canal reales: si el video no existe lo quita, y si la atribución no coincide lo advierte. Si no encontraste un video confiable, no recomiendes ninguno.\n" +
     "- Puedes incluir una imagen en una línea propia con ![descripción](https://url-de-la-imagen) solo si la dirección es de una fuente oficial verificada. Si dudas, no la incluyas.";
+  // Título del documento (PDF, correo, WhatsApp): la IA lo propone en una primera línea que el chat no muestra
+  const INSTRUCCION_TITULO = "\n\n### Título\nEscribe como PRIMERA línea de tu respuesta: «TITULO: …» con un título de 4 a 12 palabras que describa con precisión " +
+    "lo que entregas según la consulta (tema, propósito y, si corresponde, nivel o destinatarios). Ejemplos: «TITULO: Estrategias para mejorar la asistencia en 2° básico», " +
+    "«TITULO: Pauta de acompañamiento al aula para el primer semestre». Sin comillas ni emojis. Esa línea no se muestra en el chat: no repitas el título debajo.";
+  // Separa la línea «TITULO: …» del resto de la respuesta
+  function extraerTitulo(texto) {
+    const m = String(texto || "").match(/^\s*(?:\*\*)?\s*T[ÍI]TULO\s*(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+?)\s*(?:\*\*)?\s*(?:\n|$)/i);
+    if (!m) return { titulo: "", texto: String(texto || "") };
+    return { titulo: m[1].replace(/^[«"“']|[»"”']$/g, "").replace(/[*_#]/g, "").trim().slice(0, 110), texto: String(texto).slice(m[0].length).replace(/^\s+/, "") };
+  }
+  const marcaTitulo = (t) => (t ? `<span class="titulo-doc" hidden data-t="${escapar(t)}"></span>` : "");
   const INSTRUCCION_ACLARAR = INSTRUCCION_VISUALES + "\n\n### Cómo responder\n" + REGLA_SIN_PROMPTS + " Si la consulta es ambigua o le falta información clave para responder bien " +
     "(por ejemplo nivel, asignatura, propósito, destinatarios o a qué establecimiento o tema se refiere), NO supongas ni inventes: " +
     "responde solo con 1 a 3 preguntas breves de aclaración, ofreciendo opciones concretas basadas en el contexto y en el rol de quien consulta. " +
-    "Si la consulta es clara, responde directamente.";
-  const INSTRUCCION_MATERIAL = INSTRUCCION_VISUALES + "\n\n### Cómo responder\nLa persona ya entregó todos los datos necesarios. Elabora DIRECTAMENTE el material completo, " +
+    "Si la consulta es clara, responde directamente." + INSTRUCCION_TITULO;
+  const INSTRUCCION_MATERIAL = INSTRUCCION_VISUALES + INSTRUCCION_TITULO + "\n\n### Cómo responder\nLa persona ya entregó todos los datos necesarios. Elabora DIRECTAMENTE el material completo, " +
     "listo para usar, siguiendo la especificación. NO escribas un prompt ni expliques cómo pedírselo a otra IA. " +
     "Contextualiza con la realidad socioeconómica, comunitaria y natural indicada (no agregues referencias geográficas que no estén en la especificación). " +
     "Al final agrega una breve sección «Para revisar antes de usar» (2 a 4 puntos: alineación curricular, pertinencia, sesgos) y la declaración de uso de IA.";
@@ -898,10 +909,11 @@
     // buscarWeb: si los documentos internos no bastan, la IA puede buscar en fuentes educativas confiables
     const datos = await consultarAPI({ accion: "consultar", pregunta: consulta, historial: previos, contexto, buscarWeb: true });
     const fuentes = buscar(consulta, 3).map((x) => x.ficha);
-    const usoWeb = /fuentes externas sugeridas/i.test(datos.respuesta);
+    const { titulo, texto } = extraerTitulo(datos.respuesta);   // título propuesto por la IA (para el PDF), sin mostrarlo
+    const usoWeb = /fuentes externas sugeridas/i.test(texto);
     contextoVigente = contexto;   // para verificar que los números de los gráficos sean reales
     datosUsuarioVigentes = [consulta].concat(historial.filter((m) => m.rol === "user").slice(-4).map((m) => m.texto || "")).join("\n");
-    return markdown(datos.respuesta) +
+    return marcaTitulo(titulo) + markdown(texto) +
       (fuentes.length ? `<div class="pie-msg">${fuentes.slice(0, 2).map(etiquetaFuente).join("")}</div>` : "") +
       `<div class="nota">${usoWeb
         ? "🌐 Esta respuesta incluye información buscada en internet porque no estaba en los documentos del asistente. Revisa las fuentes sugeridas antes de usarla."
@@ -1448,9 +1460,13 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     ocupado = true; el.enviar.disabled = true;
     const espera = mostrarEscribiendo();
     try {
-      const material = await generarMaterialIA(prompt);
+      const { titulo: tituloIA, texto: material } = extraerTitulo(await generarMaterialIA(prompt));
       espera.remove();
-      agregar("bot", `<h3>✅ ${escapar(t.nombre)}</h3>${markdown(material)}${verPrompt}
+      // Título del documento: tipo de material + tema + nivel o destinatarios (ej.: «Guía de trabajo: fracciones equivalentes · 5° básico»)
+      const temaMat = d.tema || d.proposito || "";
+      const tituloMat = tituloIA || [t.nombre + (temaMat ? ": " + temaMat.charAt(0).toLowerCase() + temaMat.slice(1) : ""),
+        d.nivel && d.nivel !== "Todo el establecimiento" ? d.nivel : (d.destinatarios || "")].filter(Boolean).join(" · ");
+      agregar("bot", `${marcaTitulo(tituloMat)}<h3>✅ ${escapar(t.nombre)}</h3>${markdown(material)}${verPrompt}
         <div class="nota">📌 Revisa el material antes de usarlo${t.curricular ? " (alineación curricular, pertinencia y sesgos)" : ""} y declara el uso de IA: <em>"${escapar(declaracion)}"</em></div>` + fuentes + siguientes,
         { texto: material });
     } catch (e) {
@@ -1788,13 +1804,28 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   // Contenido de una respuesta, sin botones ni elementos de la interfaz
   function contenidoMsg(msg) {
     const c = msg.querySelector(".burbuja").cloneNode(true);
-    c.querySelectorAll(".acciones-msg, .chips, .g-tipos, .g-ver-datos, .g-desde-tabla, .ver-prompt, .video-yt.verificando, .btn-copiar, .escribiendo").forEach((x) => x.remove());
+    c.querySelectorAll(".acciones-msg, .chips, .g-tipos, .g-ver-datos, .g-desde-tabla, .ver-prompt, .video-yt.verificando, .btn-copiar, .escribiendo, .titulo-doc").forEach((x) => x.remove());
     return c;
   }
+  /* Título del documento, acorde a la consulta y a lo entregado:
+     1) el que propuso la IA; 2) un encabezado específico de la respuesta; 3) uno redactado a partir de la consulta */
+  const ENCABEZADO_GENERICO = /^(resumen|introducci[oó]n|respuesta|interpretaci[oó]n( r[aá]pida)?|pr[oó]ximos pasos|recomendaciones|sugerencias|conclusi[oó]n(es)?|paso \d+|contexto|detalles|opciones|nota|importante|perfecto|listo|aqu[ií] (tienes|est[aá])|datos del establecimiento)\b/i;
+  function tituloDesdeConsulta(q) {
+    let t = String(q || "").replace(/[¿?¡!]/g, "").replace(/\s+/g, " ").trim();
+    t = t.replace(/^(hola|buen[oa]s?( d[ií]as| tardes| noches)?)[,.\s]+/i, "");
+    for (let i = 0; i < 3; i++) {   // quita fórmulas de pedido: "por favor, ¿me puedes hacer una guía…?" → "Guía…"
+      t = t.replace(/^(por favor[,\s]*|me (puedes|podr[ií]as|ayudas a|ayudar[ií]as a)\s+|puedes\s+|podr[ií]as\s+|necesito\s+|quiero\s+|quisiera\s+|me gustar[ií]a\s+|ay[uú]dame a\s+|dame\s+|hazme\s+|haz\s+|cr[eé]ame\s+|crea(r)?\s+|genera(r)?\s+|elabora(r)?\s+|redacta(r)?\s+|prepara(r)?\s+|arma(r)?\s+|dise[ñn]a(r)?\s+|hacer\s+|expl[ií]ca(r|me|rme)?\s+|dime\s+|decir(me)?\s+|ind[ií]ca(r|me|rme)?\s+|mu[eé]stra(me)?\s+|mostrar(me)?\s+|dar(me)?\s+|contar(me)?\s+|saber\s+|conocer\s+|entregar(me)?\s+|orientar(me)?\s+(sobre|en|con)\s+)/i, "");
+    }
+    t = t.replace(/^(un|una|unos|unas|el|la|los|las)\s+/i, "").replace(/\s*(por favor|porfa)\.?$/i, "").replace(/\s*[.,;:]+$/, "");
+    return t ? corto(t.charAt(0).toUpperCase() + t.slice(1), 90) : "";
+  }
   function tituloMsg(msg) {
-    const h = msg.querySelector(".burbuja h3, .burbuja h4, .burbuja .g-titulo b");
-    if (h && h.textContent.trim().length > 3) return h.textContent.replace(/^[^\wÁÉÍÓÚÑáéíóúñ¿¡]+/, "").trim().slice(0, 90);
-    const q = preguntaDe(msg); return q ? corto(q, 90) : "Respuesta del Asistente IA";
+    const propio = msg.querySelector(".titulo-doc");
+    if (propio && propio.dataset.t) return propio.dataset.t;
+    const h = [...msg.querySelectorAll(".burbuja h3, .burbuja h4, .burbuja .g-titulo b")].map((x) => x.textContent.replace(/^[^\wÁÉÍÓÚÑáéíóúñ¿¡]+/, "").trim())
+      .find((x) => x.length > 8 && !ENCABEZADO_GENERICO.test(x));
+    const desdeConsulta = tituloDesdeConsulta(preguntaDe(msg));
+    return (h && h.length >= 12 ? h : desdeConsulta || h) || "Respuesta del Asistente IA";
   }
   function preguntaDe(msg) {   // la consulta que originó la respuesta
     let p = msg.previousElementSibling;
@@ -1938,6 +1969,12 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       pm.replaceWith(q);
     });
     const titulo = tituloMsg(msg), pregunta = preguntaDe(msg), p = leerPerfil() || {};
+    // Si el primer encabezado repite el título del documento, se quita (evita títulos duplicados)
+    const primero = c.querySelector("h3, h4");
+    if (primero) {
+      const a = normalizar(primero.textContent.replace(/^[^\wÁÉÍÓÚÑáéíóúñ]+/, "")), b = normalizar(titulo);
+      if (a && (a === b || b.startsWith(a))) primero.remove();
+    }
     const ahora = new Date(), fecha = ahora.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
     const filaMeta = (k, v) => (v ? `<tr><th>${k}</th><td>${escapar(v)}</td></tr>` : "");
     const nombre = normalizar(titulo).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) + "-" + ahora.toISOString().slice(0, 10) + ".pdf";
