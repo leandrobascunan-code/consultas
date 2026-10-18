@@ -870,25 +870,38 @@
   /* Llamada al servicio de IA. Si está saturado («muchas consultas»), espera y reintenta solo (hasta 2 veces);
      la segunda vez, sin búsqueda web, que es lo que más consume. */
   const RE_SATURADO = /recibiendo muchas consultas/i;
+  /* Fila de espera: si hay muchas personas consultando a la vez (el servicio de Google atiende unas 30 consultas
+     simultáneas y la IA gratuita tiene un límite por minuto), el chat espera y reintenta solo, con una pausa
+     distinta para cada persona, en vez de mostrar un error. */
+  const RE_OCUPADO = /too many|simult|demasiad|invoked|servicio no disponible|timed out|tiempo|unavailable|429|503|500/i;
   async function consultarAPI(cuerpo) {
-    let intento = 0;
-    for (;;) {
-      const r = await fetch(CONFIG.API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(cuerpo) });   // text/plain: sin preflight CORS
-      const datos = await r.json();
-      if (!datos.ok) throw new Error(datos.error || "Respuesta no válida");
-      if (!RE_SATURADO.test(datos.respuesta || "") || intento >= 2) return datos;
-      intento++;
+    const esperas = [4000, 8000, 14000, 22000];   // hasta ~50 s en total
+    for (let intento = 0; ; intento++) {
+      let datos = null, error = null;
+      try {
+        const r = await fetch(CONFIG.API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(cuerpo) });   // text/plain: sin preflight CORS
+        const txt = await r.text();
+        try { datos = JSON.parse(txt); } catch (e) { error = new Error("servicio ocupado"); }   // Google respondió una página de error
+      } catch (e) { error = new Error("sin conexión con el servicio"); }
+      if (datos && !datos.ok && (!RE_OCUPADO.test(datos.error || "") || /rechaz|clave|datos personales|límite diario/i.test(datos.error || ""))) {
+        throw new Error(datos.error || "Respuesta no válida");   // error definitivo: no sirve reintentar
+      }
+      const saturado = datos && datos.ok && RE_SATURADO.test(datos.respuesta || "");
+      if (datos && datos.ok && !saturado) return datos;
+      if (intento >= esperas.length) {
+        if (datos && datos.ok) return datos;   // devuelve el aviso de saturación
+        throw error || new Error((datos && datos.error) || "El servicio está muy ocupado");
+      }
       const escribiendo = el.mensajes.querySelector(".robot-pensando strong");
-      if (escribiendo) escribiendo.textContent = "La IA está con muchas consultas: reintento en unos segundos…";
-      await new Promise((ok) => setTimeout(ok, intento === 1 ? 9000 : 16000));
-      if (intento === 2) cuerpo = Object.assign({}, cuerpo, { buscarWeb: false });
-      if (escribiendo) escribiendo.textContent = "Preparando tu respuesta…";
+      if (escribiendo) escribiendo.textContent = `Hay muchas personas consultando: tu consulta está en fila (intento ${intento + 2} de ${esperas.length + 1})…`;
+      await new Promise((ok) => setTimeout(ok, esperas[intento] + Math.random() * 2500));   // pausa distinta para cada persona
+      if (intento >= 2) cuerpo = Object.assign({}, cuerpo, { buscarWeb: false });   // la búsqueda web es lo que más consume
     }
   }
 
   /* Elabora un material con la IA a partir de la especificación armada paso a paso */
   async function generarMaterialIA(especificacion) {
-    const datos = await consultarAPI({ accion: "consultar", pregunta: especificacion, historial: [], contexto: contextoPerfil() + INSTRUCCION_MATERIAL });
+    const datos = await consultarAPI({ accion: "consultar", modo: "material", pregunta: especificacion, historial: [], contexto: contextoPerfil() + INSTRUCCION_MATERIAL });
     return datos.respuesta;
   }
 

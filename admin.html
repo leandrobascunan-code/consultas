@@ -147,6 +147,7 @@
         <button data-tab="est" class="activa">🏫 Establecimientos</button>
         <button data-tab="fuentes">📚 Fuentes y documentos</button>
         <button data-tab="perfiles">👥 Roles y perfiles</button>
+        <button data-tab="servicio">🔑 Servicio de IA</button>
         <button data-tab="anadir" class="anadir">➕ Añadir</button>
       </nav>
 
@@ -173,6 +174,24 @@
         <p class="ayuda" style="font-size:.86rem;margin:0 0 12px">Describe las funciones de cada cargo para que el asistente proponga actividades acordes al perfil y a la normativa vigente. Las descripciones de base son referencias generales: ajústelas a la realidad del Servicio o agregue cargos nuevos en <strong>➕ Añadir</strong>.</p>
         <div class="herr"><input type="text" id="buscarPerfil" placeholder="🔍 Buscar cargo o función…"></div>
         <div id="listaPerfiles"><p class="vacio">Cargando…</p></div>
+      </section>
+
+      <!-- SERVICIO DE IA: claves de Groq (rotación) y límite diario -->
+      <section id="tab-servicio" hidden>
+        <div class="tarjeta">
+          <h2>🔑 Claves de la IA (Groq)</h2>
+          <p>Además de la clave principal, puede agregar <strong>hasta 3 claves</strong>. El asistente reparte las consultas entre ellas y, si una se agota, sigue con la siguiente; si todas se agotan con el modelo principal, usa modelos de respaldo.</p>
+          <div class="aviso">⚠️ <strong>Importante:</strong> Groq aplica los límites <strong>por cuenta</strong>. Cada clave adicional debe crearse en una <strong>cuenta de Groq distinta</strong> (otra persona u otro correo) en <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>; varias claves de una misma cuenta no suman capacidad.</div>
+          <div id="listaClaves"><p class="vacio">Cargando…</p></div>
+          <div class="acciones"><button class="btn sec" type="button" id="btnProbarClaves">🔍 Probar todas las claves</button><span class="msg-estado" id="estadoClaves"></span></div>
+          <p class="ayuda">Las claves se guardan solo en el servidor (Apps Script) y aquí se muestran enmascaradas. Nunca quedan en GitHub.</p>
+        </div>
+        <div class="tarjeta">
+          <h2>📊 Límite diario de consultas</h2>
+          <p>Protege el servicio de un uso excesivo. Consultas usadas hoy: <strong id="usoHoy">—</strong>.</p>
+          <div class="fila"><div><label for="limiteDiario">Consultas máximas por día</label><input type="text" id="limiteDiario" inputmode="numeric"></div></div>
+          <div class="acciones"><button class="btn primario" type="button" id="btnLimite">Guardar límite</button><span class="msg-estado" id="estadoLimite"></span></div>
+        </div>
       </section>
 
       <section id="tab-anadir" hidden>
@@ -566,12 +585,56 @@
     document.querySelector(".tabs").addEventListener("click", (e) => {
       const b = e.target.closest("button"); if (!b) return;
       document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("activa", x === b));
-      ["est", "fuentes", "perfiles", "anadir"].forEach((t) => { $("#tab-" + t).hidden = t !== b.dataset.tab; });
+      ["est", "fuentes", "perfiles", "servicio", "anadir"].forEach((t) => { $("#tab-" + t).hidden = t !== b.dataset.tab; });
+      if (b.dataset.tab === "servicio") cargarServicio();
     });
     $("#chipsComuna").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; comunaFiltro = b.dataset.comuna; pintarChips(); pintarEst(); });
     $("#buscarEst").addEventListener("input", pintarEst);
     $("#buscarFuente").addEventListener("input", pintarFuentes);
     $("#buscarPerfil").addEventListener("input", pintarPerfiles);
+
+    /* ---------- Servicio de IA: claves adicionales y límite diario ---------- */
+    const ETIQUETA_ESTADO = { "disponible": "✅ disponible", "rechazada": "❌ rechazada por Groq", "vacía": "— sin clave" };
+    async function cargarServicio() {
+      try {
+        const d = await llamar("admin-servicio");
+        $("#usoHoy").textContent = d.usoHoy + " de " + d.limiteDiario;
+        $("#limiteDiario").value = d.limiteDiario;
+        $("#listaClaves").innerHTML =
+          `<div class="ficha"><div class="info"><strong>Clave principal</strong><small>${esc(d.principal.clave || "sin clave")} · ${esc(ETIQUETA_ESTADO[d.principal.estado] || d.principal.estado)}</small>` +
+          `<p class="ayuda" style="margin-top:4px">Se cambia en Apps Script (propiedad CLAVE_GROQ).</p></div></div>` +
+          d.extras.map((x) => `<div class="ficha"><div class="info"><strong>Clave adicional ${x.posicion}</strong>` +
+            `<small>${x.clave ? esc(x.clave) + " · " : ""}${esc(ETIQUETA_ESTADO[x.estado] || x.estado)}</small>` +
+            `<div class="fila" style="margin-top:6px"><div><input type="password" autocomplete="off" placeholder="${x.clave ? "Reemplazar por otra clave gsk_…" : "Pegue aquí una clave gsk_…"}" data-clave="${x.posicion}"></div></div>` +
+            `<span class="msg-estado" data-estado-clave="${x.posicion}"></span></div>` +
+            `<div class="botones"><button class="btn primario" type="button" data-guardar-clave="${x.posicion}">Guardar</button>` +
+            (x.clave ? `<button class="btn peligro" type="button" data-quitar-clave="${x.posicion}">Quitar</button>` : "") + `</div></div>`).join("");
+      } catch (err) { $("#listaClaves").innerHTML = `<p class="vacio">No se pudo cargar: ${esc(err.message)}. ¿Actualizó el Apps Script a la versión groq-11?</p>`; }
+    }
+    $("#listaClaves").addEventListener("click", async (e) => {
+      const g = e.target.closest("[data-guardar-clave]"), q = e.target.closest("[data-quitar-clave]");
+      if (g) {
+        const pos = g.dataset.guardarClave, input = document.querySelector(`[data-clave="${pos}"]`), salida = document.querySelector(`[data-estado-clave="${pos}"]`);
+        const clave = input.value.trim();
+        if (!/^gsk_\w{20,}$/.test(clave)) { estado(salida, "⚠️ La clave debe empezar con gsk_ y estar completa.", "error"); return; }
+        g.disabled = true; estado(salida, "Probando la clave con Groq…");
+        try { await llamar("admin-clave-guardar", { posicion: Number(pos), clave }); input.value = ""; estado(salida, "✅ Clave guardada y verificada.", "ok"); setTimeout(cargarServicio, 900); }
+        catch (err) { estado(salida, err.message, "error"); } finally { g.disabled = false; }
+      }
+      if (q && confirm("¿Quitar esta clave adicional?")) {
+        try { await llamar("admin-clave-eliminar", { posicion: Number(q.dataset.quitarClave) }); cargarServicio(); } catch (err) { alert(err.message); }
+      }
+    });
+    $("#btnProbarClaves").addEventListener("click", async () => {
+      estado($("#estadoClaves"), "Probando…");
+      try { const d = await llamar("admin-claves-probar"); estado($("#estadoClaves"), "Principal: " + d.resultados[0] + " · " + d.resultados.slice(1).map((r, i) => "Adicional " + (i + 1) + ": " + r).join(" · "), "ok"); cargarServicio(); }
+      catch (err) { estado($("#estadoClaves"), err.message, "error"); }
+    });
+    $("#btnLimite").addEventListener("click", async () => {
+      const n = Number($("#limiteDiario").value.replace(/\D/g, ""));
+      try { await llamar("admin-limite-guardar", { limite: n }); estado($("#estadoLimite"), "✅ Límite guardado.", "ok"); cargarServicio(); }
+      catch (err) { estado($("#estadoLimite"), err.message, "error"); }
+    });
     $("#opcionesAnadir").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) mostrarAnadir(b.dataset.nuevo); });
     document.addEventListener("click", (e) => {
       const b = e.target.closest("[data-acc]"); if (b) return accion(b.dataset.acc, b.dataset.tipo, b.dataset.id);

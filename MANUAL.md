@@ -152,6 +152,16 @@ Si los documentos del asistente no responden la consulta, la IA puede buscar en 
 - **Correo desde la app:** formulario con Para (hasta 5), Asunto, Mensaje y correo para respuestas; el Apps Script (groq-9) lo envía con el PDF adjunto desde la cuenta del Servicio. Límite diario `LIMITE_CORREOS` (60 por defecto) y dominios permitidos opcionales `DOMINIOS_CORREO` (ej. `andaliensur.cl`). Requiere ejecutar una vez `autorizarCorreo` (o `configurarContenido`) para dar el permiso de envío. Alternativa: «Usar mi app de correo».
 - Si no hay conexión para crear el PDF, el botón 🖨️ imprime solo el documento («Guardar como PDF»).
 - **Gráficos a pedido:** si la persona entrega sus datos y pide un gráfico, la IA lo diseña con esos números (sello «Gráfico elaborado con los datos que entregaste»). «Gráfico de matrícula de [comuna]» se responde directo con el PAL. Cada gráfico permite cambiar el tipo (barras, horizontales, líneas, dona).
+## 5f. Capacidad: varias claves de IA y muchas personas a la vez (Apps Script groq-11)
+
+- **Panel → 🔑 Servicio de IA:** además de la clave principal, se pueden cargar **hasta 3 claves adicionales** de Groq (se prueban antes de guardarse, se muestran enmascaradas y viven solo en Apps Script). También se ajusta el **límite diario** (por defecto 4.000 consultas) y se ve el uso del día.
+- **Rotación:** las consultas se reparten entre las claves; si una se satura (error 429) se salta por los segundos que indica Groq; si una es rechazada se omite 10 minutos.
+- **Modelos de respaldo:** si el modelo principal (`openai/gpt-oss-120b`) se agota en todas las claves, se usan `openai/gpt-oss-20b`, `llama-3.3-70b-versatile` y `llama-3.1-8b-instant` (cada modelo tiene su propio límite).
+- **Memoria de respuestas:** una consulta idéntica (sin conversación previa) se responde desde la memoria durante 6 horas.
+- **Consultas livianas:** menos contexto y respuestas acotadas (3.000 tokens; 4.500 para materiales).
+- **Fila de espera:** si Google (≈30 ejecuciones simultáneas) o Groq están saturados, el chat reintenta solo hasta 4 veces (≈50 s), con pausas distintas para cada persona.
+- ⚠️ **Groq aplica los límites por cuenta:** las claves adicionales deben ser de **cuentas distintas**. En el plan gratuito cada cuenta permite ≈8.000 tokens por minuto y ≈200.000 por día por modelo; para un uso intensivo y sostenido conviene el plan de pago por uso de Groq (Developer).
+
 ## 6. Registro de cambios
 
 | Fecha | Cambio | Responsable |
