@@ -505,6 +505,10 @@ button { font: inherit; cursor: pointer; }
 .btn-enviar:hover { transform: scale(1.06) rotate(-4deg); }
 .btn-enviar:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 .composer-nota { max-width: 880px; margin: 8px auto 0; text-align: center; font-size: .74rem; color: var(--texto-2); }
+/* Crédito discreto al pie */
+.credito { max-width: 880px; margin: 3px auto 0; text-align: center; font-size: .66rem; letter-spacing: .02em; color: var(--texto-2); opacity: .75; }
+.credito::before { content: ""; display: inline-block; width: 18px; height: 2px; margin: 0 7px 3px 0; border-radius: 2px; background: var(--arcoiris); vertical-align: middle; }
+.credito::after { content: ""; display: inline-block; width: 18px; height: 2px; margin: 0 0 3px 7px; border-radius: 2px; background: var(--arcoiris); vertical-align: middle; }
 
 /* ------------------------------- Móvil ------------------------------- */
 @media (max-width: 900px) {
