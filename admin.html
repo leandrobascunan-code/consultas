@@ -618,7 +618,8 @@
         const clave = input.value.trim();
         if (!/^gsk_\w{20,}$/.test(clave)) { estado(salida, "⚠️ La clave debe empezar con gsk_ y estar completa.", "error"); return; }
         g.disabled = true; estado(salida, "Probando la clave con Groq…");
-        try { await llamar("admin-clave-guardar", { posicion: Number(pos), clave }); input.value = ""; estado(salida, "✅ Clave guardada y verificada.", "ok"); setTimeout(cargarServicio, 900); }
+        // Va en "claveGroq": el campo "clave" es la clave de acceso al panel
+        try { await llamar("admin-clave-guardar", { posicion: Number(pos), claveGroq: clave }); input.value = ""; estado(salida, "✅ Clave guardada y verificada.", "ok"); setTimeout(cargarServicio, 900); }
         catch (err) { estado(salida, err.message, "error"); } finally { g.disabled = false; }
       }
       if (q && confirm("¿Quitar esta clave adicional?")) {
