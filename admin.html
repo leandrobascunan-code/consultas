@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Panel de configuración · Asistente IA SLEP Andalién Sur</title>
+  <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="estilos.css">
+  <style>
+    body { overflow-y: auto; }
+    .adm-top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 20px; background: #1d2633; color: #fff; }
+    .adm-top::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--arcoiris); }
+    .adm-top h1 { margin: 0; font-size: 1.05rem; flex: 1; }
+    .adm-top .tag { font-size: .72rem; font-weight: 800; background: var(--slep-amarillo); color: #3a2a00; padding: 3px 9px; border-radius: 999px; }
+    .adm { max-width: 1100px; margin: 0 auto; padding: 22px 16px 60px; }
+    .tarjeta { background: var(--panel); border: 1px solid var(--borde); border-radius: 18px; box-shadow: var(--sombra); padding: 20px 22px; margin-bottom: 18px; }
+    .tarjeta h2 { margin: 0 0 6px; font-size: 1.1rem; }
+    .tarjeta p { margin: 0 0 10px; color: var(--texto-2); font-size: .9rem; }
+    .login { max-width: 420px; margin: 8vh auto 0; text-align: center; }
+    .login img { width: 200px; background: #fff; border-radius: 12px; padding: 6px 10px; margin-bottom: 10px; }
+    label { display: block; font-size: .82rem; font-weight: 700; margin: 12px 0 5px; }
+    input[type=text], input[type=password], select, textarea {
+      width: 100%; font: inherit; font-size: .92rem; color: var(--texto); background: var(--panel);
+      border: 1.5px solid var(--borde); border-radius: 11px; padding: 10px 12px;
+    }
+    textarea { min-height: 110px; resize: vertical; line-height: 1.5; }
+    input:focus, select:focus, textarea:focus { outline: none; border-color: var(--slep-celeste); box-shadow: 0 0 0 3px rgba(58,191,240,.18); }
+    .fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0 14px; }
+    .btn { border: 0; border-radius: 11px; padding: 9px 14px; font: inherit; font-weight: 700; font-size: .85rem; cursor: pointer; white-space: nowrap; }
+    .btn.primario { background: linear-gradient(135deg, #0071ea, #3abff0); color: #fff; }
+    .btn.sec { background: var(--panel-2); color: var(--texto); border: 1.5px solid var(--borde); }
+    .btn.peligro { background: var(--rojo-suave); color: var(--rojo); }
+    .btn.verde { background: var(--verde-suave); color: #2f6e0c; }
+    .btn:disabled { opacity: .5; cursor: wait; }
+    .acciones { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; align-items: center; }
+    .msg-estado { font-size: .86rem; font-weight: 600; }
+    .msg-estado.ok { color: var(--verde); } .msg-estado.error { color: var(--rojo); }
+    .ayuda { font-size: .78rem; color: var(--texto-2); margin-top: 4px; }
+    .aviso { background: var(--amarillo-suave); border-left: 5px solid var(--slep-amarillo); border-radius: 12px; padding: 12px 14px; font-size: .86rem; margin-bottom: 14px; }
+    .vacio { text-align: center; color: var(--texto-2); padding: 20px; }
+
+    /* Resumen */
+    .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .cifra { background: var(--panel); border: 1px solid var(--borde); border-top: 4px solid var(--c); border-radius: 14px; padding: 12px 14px; }
+    .cifra strong { display: block; font-size: 1.5rem; line-height: 1.1; }
+    .cifra span { font-size: .8rem; color: var(--texto-2); }
+
+    /* Pestañas */
+    .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; position: sticky; top: 56px; z-index: 4; background: var(--fondo); padding: 6px 0; }
+    .tabs button { flex: 1 1 160px; border: 1.5px solid var(--borde); background: var(--panel); border-radius: 13px; padding: 11px 12px; font: inherit; font-weight: 700; font-size: .9rem; cursor: pointer; color: var(--texto); }
+    .tabs button.activa { background: #1d2633; color: #fff; border-color: #1d2633; }
+    .tabs button.anadir { border-color: #90d039; }
+    .tabs button.anadir.activa { background: #4fa61a; border-color: #4fa61a; }
+
+    .herr { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+    .herr input { flex: 1 1 240px; }
+    .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+    .chips button { border: 1.5px solid var(--borde); background: var(--panel); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
+    .chips button.activo { background: var(--azul); color: #fff; border-color: var(--azul); }
+
+    /* Grupos y fichas */
+    details.grupo { background: var(--panel); border: 1px solid var(--borde); border-radius: 16px; margin-bottom: 12px; overflow: hidden; }
+    details.grupo > summary { cursor: pointer; list-style: none; display: flex; align-items: center; gap: 10px; padding: 13px 16px; font-weight: 800; border-left: 6px solid var(--c); }
+    details.grupo > summary::-webkit-details-marker { display: none; }
+    details.grupo > summary::after { content: "▾"; margin-left: auto; color: var(--texto-2); transition: transform .2s; }
+    details.grupo:not([open]) > summary::after { transform: rotate(-90deg); }
+    details.grupo > summary .n { font-size: .78rem; font-weight: 700; background: var(--panel-2); border-radius: 999px; padding: 2px 9px; color: var(--texto-2); }
+    .fichas { display: grid; gap: 8px; padding: 0 12px 12px; }
+    .ficha { display: flex; gap: 12px; align-items: flex-start; border: 1px solid var(--borde); border-radius: 12px; padding: 11px 13px; background: var(--panel); }
+    .ficha.eliminado { opacity: .6; background: var(--panel-2); }
+    .ficha .info { flex: 1; min-width: 0; }
+    .ficha strong { font-size: .95rem; }
+    .ficha small { display: block; color: var(--texto-2); font-size: .78rem; margin-top: 2px; }
+    .ficha p { margin: 6px 0 0; font-size: .83rem; color: var(--texto-2); white-space: pre-line; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+    .ficha p.abierto { -webkit-line-clamp: unset; display: block; }
+    .ver-mas { border: 0; background: none; color: var(--azul); font: inherit; font-size: .78rem; font-weight: 700; padding: 2px 0; cursor: pointer; }
+    .ficha .botones { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+    .sello { display: inline-block; font-size: .68rem; font-weight: 800; border-radius: 999px; padding: 2px 8px; margin-left: 6px; vertical-align: 2px; }
+    .sello.original { background: var(--azul-suave); color: var(--azul); }
+    .sello.editado { background: var(--amarillo-suave); color: #8a6100; }
+    .sello.nuevo { background: var(--verde-suave); color: #2f6e0c; }
+    .sello.eliminado, .sello.oculto { background: var(--rojo-suave); color: var(--rojo); }
+    .subtitulo { font-size: .95rem; margin: 20px 0 10px; }
+    .sello.pei-si { background: #e6f7ef; color: #0b8f6a; } .sello.pei-no { background: var(--panel-2); color: var(--texto-2); }
+    fieldset.pei { border: 1.5px solid #bfe3a0; border-radius: 14px; padding: 6px 14px 14px; margin: 16px 0 4px; background: #fbfef7; }
+    fieldset.pei legend { font-weight: 800; padding: 0 6px; }
+    details.pegar-pei { background: var(--panel); border: 1.5px dashed var(--borde); border-radius: 12px; padding: 8px 12px; margin: 8px 0; }
+    details.pegar-pei summary { cursor: pointer; font-weight: 700; font-size: .86rem; }
+    details.pegar-pei textarea { margin: 8px 0; min-height: 140px; }
+
+    /* Añadir */
+    .opciones-anadir { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .opciones-anadir button { text-align: left; border: 1.5px solid var(--borde); background: var(--panel); border-radius: 14px; padding: 13px 14px; font: inherit; cursor: pointer; border-top: 4px solid var(--c); }
+    .opciones-anadir button strong { display: block; font-size: .92rem; }
+    .opciones-anadir button span { font-size: .78rem; color: var(--texto-2); }
+    .opciones-anadir button.activo { background: var(--azul-suave); border-color: var(--azul); }
+
+    /* Ventana de edición */
+    dialog { border: 0; border-radius: 18px; padding: 0; width: min(680px, calc(100vw - 24px)); max-height: calc(100vh - 40px); box-shadow: 0 20px 60px rgba(0,0,0,.3); background: var(--panel); color: var(--texto); }
+    dialog::backdrop { background: rgba(15, 25, 40, .55); }
+    .dlg-cab { display: flex; align-items: center; gap: 10px; padding: 14px 18px; border-bottom: 1px solid var(--borde); position: sticky; top: 0; background: var(--panel); z-index: 1; }
+    .dlg-cab h2 { margin: 0; font-size: 1.02rem; flex: 1; }
+    .dlg-cuerpo { padding: 4px 18px 18px; }
+    @media (max-width: 640px) {
+      .ficha { flex-direction: column; } .ficha .botones { justify-content: flex-start; }
+      .adm-top { padding: 10px 14px; } .adm-top h1 { font-size: .95rem; } .adm-top .tag { display: none; }
+      .resumen { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+      .cifra { padding: 8px 9px; } .cifra strong { font-size: 1.15rem; } .cifra span { font-size: .68rem; }
+      .tabs { position: static; } .tabs button { flex: 1 1 30%; padding: 9px 6px; font-size: .78rem; }
+    }
+  </style>
+</head>
+<body>
+  <header class="adm-top">
+    <h1>⚙️ Panel de configuración · Asistente IA</h1>
+    <span class="tag">ACCESO RESTRINGIDO</span>
+    <button class="btn sec" id="btnSalir" hidden>Cerrar sesión</button>
+  </header>
+
+  <main class="adm">
+    <!-- INGRESO -->
+    <section class="tarjeta login" id="vistaLogin">
+      <img src="logo-slep.png" alt="SLEP Andalién Sur">
+      <h2>Ingreso al panel</h2>
+      <p>Solo para el equipo autorizado del Servicio. La clave se verifica en el servidor.</p>
+      <form id="formLogin">
+        <label for="clave">Clave de acceso</label>
+        <input type="password" id="clave" autocomplete="current-password" required>
+        <div class="acciones" style="justify-content:center">
+          <button class="btn primario" id="btnEntrar" type="submit">Ingresar</button>
+        </div>
+        <p class="msg-estado" id="estadoLogin"></p>
+      </form>
+    </section>
+
+    <!-- PANEL -->
+    <div id="vistaPanel" hidden>
+      <div class="aviso">🔒 <strong>Solo información institucional.</strong> No ingrese nombres de estudiantes, RUT, correos, teléfonos ni datos de salud (Ley 21.719). Los cambios se ven en el asistente la próxima vez que alguien lo abra. <span id="enlacePlanilla"></span></div>
+
+      <div class="resumen" id="resumen"></div>
+
+      <nav class="tabs" aria-label="Secciones del panel">
+        <button data-tab="est" class="activa">🏫 Establecimientos</button>
+        <button data-tab="fuentes">📚 Fuentes y documentos</button>
+        <button data-tab="perfiles">👥 Roles y perfiles</button>
+        <button data-tab="servicio">🔑 Servicio de IA</button>
+        <button data-tab="anadir" class="anadir">➕ Añadir</button>
+      </nav>
+
+      <!-- ESTABLECIMIENTOS: ver, editar, eliminar -->
+      <section id="tab-est">
+        <div class="herr">
+          <input type="text" id="buscarEst" placeholder="🔍 Buscar colegio, nivel o característica…">
+        </div>
+        <div class="chips" id="chipsComuna"></div>
+        <div id="listaEst"><p class="vacio">Cargando…</p></div>
+      </section>
+
+      <!-- FUENTES: ver, editar, eliminar -->
+      <section id="tab-fuentes" hidden>
+        <div class="herr">
+          <input type="text" id="buscarFuente" placeholder="🔍 Buscar documento, organismo o tema…">
+        </div>
+        <div id="listaFuentes"><p class="vacio">Cargando…</p></div>
+      </section>
+
+      <!-- AÑADIR -->
+      <!-- ROLES Y PERFILES DE CARGO: ver, editar, eliminar -->
+      <section id="tab-perfiles" hidden>
+        <p class="ayuda" style="font-size:.86rem;margin:0 0 12px">Describe las funciones de cada cargo para que el asistente proponga actividades acordes al perfil y a la normativa vigente. Las descripciones de base son referencias generales: ajústelas a la realidad del Servicio o agregue cargos nuevos en <strong>➕ Añadir</strong>.</p>
+        <div class="herr"><input type="text" id="buscarPerfil" placeholder="🔍 Buscar cargo o función…"></div>
+        <div id="listaPerfiles"><p class="vacio">Cargando…</p></div>
+      </section>
+
+      <!-- SERVICIO DE IA: claves de Groq (rotación) y límite diario -->
+      <section id="tab-servicio" hidden>
+        <div class="tarjeta">
+          <h2>🔑 Claves de la IA (Groq)</h2>
+          <p>Además de la clave principal, puede agregar <strong>hasta 3 claves</strong>. El asistente reparte las consultas entre ellas y, si una se agota, sigue con la siguiente; si todas se agotan con el modelo principal, usa modelos de respaldo.</p>
+          <div class="aviso">⚠️ <strong>Importante:</strong> Groq aplica los límites <strong>por cuenta</strong>. Cada clave adicional debe crearse en una <strong>cuenta de Groq distinta</strong> (otra persona u otro correo) en <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>; varias claves de una misma cuenta no suman capacidad.</div>
+          <div id="listaClaves"><p class="vacio">Cargando…</p></div>
+          <div class="acciones"><button class="btn sec" type="button" id="btnProbarClaves">🔍 Probar todas las claves</button><span class="msg-estado" id="estadoClaves"></span></div>
+          <p class="ayuda">Las claves se guardan solo en el servidor (Apps Script) y aquí se muestran enmascaradas. Nunca quedan en GitHub.</p>
+        </div>
+        <div class="tarjeta">
+          <h2>📊 Límite diario de consultas</h2>
+          <p>Protege el servicio de un uso excesivo. Consultas usadas hoy: <strong id="usoHoy">—</strong>.</p>
+          <div class="fila"><div><label for="limiteDiario">Consultas máximas por día</label><input type="text" id="limiteDiario" inputmode="numeric"></div></div>
+          <div class="acciones"><button class="btn primario" type="button" id="btnLimite">Guardar límite</button><span class="msg-estado" id="estadoLimite"></span></div>
+        </div>
+      </section>
+
+      <section id="tab-anadir" hidden>
+        <div class="opciones-anadir" id="opcionesAnadir">
+          <button data-nuevo="establecimiento" style="--c:#4fa61a" class="activo"><strong>🏫 Establecimiento</strong><span>Un colegio, liceo o jardín nuevo</span></button>
+          <button data-nuevo="documento" style="--c:#e0559b"><strong>📄 Documento o enlace</strong><span>Aparece en la Biblioteca y el chat lo usa</span></button>
+          <button data-nuevo="perfil" style="--c:#5b4bd1"><strong>👥 Perfil de cargo</strong><span>Funciones de un rol (incl. áreas del SLEP)</span></button>
+          <button data-nuevo="info" style="--c:#0071ea"><strong>ℹ️ Información del Servicio</strong><span>Avisos, orientaciones o acuerdos</span></button>
+          <button data-nuevo="masivo" style="--c:#f0a500"><strong>📥 Varios establecimientos</strong><span>Carga masiva desde el PAL</span></button>
+        </div>
+        <section class="tarjeta" id="cajaAnadir"></section>
+      </section>
+    </div>
+  </main>
+
+  <!-- Ventana para editar -->
+  <dialog id="dlg">
+    <div class="dlg-cab"><h2 id="dlgTitulo">Editar</h2><button class="btn sec" type="button" id="dlgCerrar">✕ Cerrar</button></div>
+    <div class="dlg-cuerpo" id="dlgCuerpo"></div>
+  </dialog>
+
+  <script src="config.js"></script>
+  <script src="establecimientos.js"></script>
+  <script src="documentos.js"></script>
+  <script src="conocimiento.js"></script>
+  <script>
+  (function () {
+    "use strict";
+    const $ = (s) => document.querySelector(s);
+    const esc = (t) => String(t == null ? "" : t).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+    const norm = (t) => String(t || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+    const API = (typeof CONFIG !== "undefined" && CONFIG.API) || "";
+    const PERSONALES = /\b\d{1,2}\.?\d{3}\.?\d{3}\s?-\s?[\dkK]\b|\b[\w.+-]+@[\w-]+\.[\w.-]+\b|(\+?56\s?)?\b9\s?\d{4}\s?\d{4}\b/;
+    const COMUNAS = ["Concepción", "Chiguayante", "Florida", "Hualqui"];
+    const COLOR_COMUNA = { "Concepción": "#0071ea", "Chiguayante": "#3abff0", "Florida": "#4fa61a", "Hualqui": "#f0a500", "": "#8a94a6" };
+    const NOMBRE_ESTADO = { original: "Base PAL", editado: "Editado", nuevo: "Agregado", eliminado: "Eliminado", oculto: "Oculto" };
+    let clave = "", items = [], comunaFiltro = "", tipoNuevo = "establecimiento";
+
+    try { clave = sessionStorage.getItem("slep-admin") || ""; } catch (e) {}
+
+    async function llamar(accion, extra) {
+      if (!API) throw new Error("El asistente no tiene configurada la URL de Apps Script (config.js).");
+      const r = await fetch(API, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(Object.assign({ accion, clave }, extra || {})) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || "Error desconocido");
+      return d;
+    }
+    function estado(el, texto, tipo) { if (!el) return; el.textContent = texto; el.classList.remove("ok", "error"); if (tipo) el.classList.add(tipo); }
+
+    /* ---------- Ingreso ---------- */
+    async function entrar(e) {
+      if (e) e.preventDefault();
+      if (!clave) clave = $("#clave").value;
+      $("#btnEntrar").disabled = true; estado($("#estadoLogin"), "Verificando…");
+      try {
+        const d = await llamar("admin-entrar");
+        try { sessionStorage.setItem("slep-admin", clave); } catch (err) {}
+        $("#vistaLogin").hidden = true; $("#vistaPanel").hidden = false; $("#btnSalir").hidden = false;
+        if (d.planilla) $("#enlacePlanilla").innerHTML = `Respaldo: <a href="${esc(d.planilla)}" target="_blank" rel="noopener">planilla de Google</a>.`;
+        cargar();
+      } catch (err) {
+        clave = ""; try { sessionStorage.removeItem("slep-admin"); } catch (e2) {}
+        estado($("#estadoLogin"), err.message, "error");
+      } finally { $("#btnEntrar").disabled = false; }
+    }
+    async function cargar() {
+      try { items = (await llamar("admin-listar")).items || []; pintarTodo(); }
+      catch (err) { $("#listaEst").innerHTML = $("#listaFuentes").innerHTML = `<p class="vacio">No se pudo cargar: ${esc(err.message)}</p>`; }
+    }
+
+    /* ---------- PEI ---------- */
+    const peiDe = (it) => ({ mision: it.mision || "", vision: it.vision || "", sellos: it.sellos || "", historia: it.historia || "", pei: it.pei || "" });
+    const tienePEI = (e) => !!(e.mision || e.vision || e.sellos || e.historia || e.pei);
+    // Detecta en un texto pegado las partes del PEI por sus títulos habituales
+    function detectarPEI(texto) {
+      const T = String(texto || "").replace(/\r/g, "");
+      const titulos = [
+        ["mision", /^\s*(?:[\dIVX]+[.)-]?\s*)?misi[oó]n(?:\s+institucional)?\b[ \t]*[:.\-–]?[ \t]*\n?/gim],
+        ["vision", /^\s*(?:[\dIVX]+[.)-]?\s*)?visi[oó]n(?:\s+institucional)?\b[ \t]*[:.\-–]?[ \t]*\n?/gim],
+        ["sellos", /^\s*(?:[\dIVX]+[.)-]?\s*)?sellos?(?:\s+(?:educativos?|institucionales?|distintivos?))?\b[ \t]*[:.\-–]?[ \t]*\n?/gim],
+        ["historia", /^\s*(?:[\dIVX]+[.)-]?\s*)?(?:rese[ñn]a\s+hist[oó]rica|historia(?:\s+del\s+(?:establecimiento|colegio|liceo|escuela))?|antecedentes\s+hist[oó]ricos)\b[ \t]*[:.\-–]?[ \t]*\n?/gim]
+      ];
+      // Otros títulos frecuentes del PEI que cierran una sección
+      const otros = /^\s*(?:[\dIVX]+[.)-]?\s*)?(?:valores|principios|perfil|objetivos?|metas|organigrama|contexto|introducci[oó]n|presentaci[oó]n|diagn[oó]stico|evaluaci[oó]n|seguimiento|ideario|definiciones|estrategias|marco|fundamentos|enfoque|identidad|antecedentes\s+(?:generales|del\s+entorno)|información\s+institucional)\b[^\n]{0,60}$/gim;
+      const marcas = [];
+      titulos.forEach(([k, re]) => { let m; while ((m = re.exec(T))) marcas.push({ k, i: m.index, f: m.index + m[0].length }); });
+      let m; while ((m = otros.exec(T))) marcas.push({ k: null, i: m.index, f: m.index + m[0].length });
+      marcas.sort((a, b) => a.i - b.i);
+      const out = {};
+      marcas.forEach((mk, n) => {
+        if (!mk.k || out[mk.k]) return;
+        const fin = n + 1 < marcas.length ? marcas[n + 1].i : T.length;
+        const txt = T.slice(mk.f, fin).replace(/\n{3,}/g, "\n\n").trim();
+        if (txt.length > 15) out[mk.k] = txt.slice(0, mk.k === "historia" ? 8000 : 3000);
+      });
+      return out;
+    }
+
+    /* ---------- Unión: base (archivos del sitio) + cambios del panel ---------- */
+    function establecimientos() {
+      const panel = items.filter((i) => i.tipo === "establecimiento");
+      const usados = new Set();
+      const lista = ESTABLECIMIENTOS.map((b) => {
+        const it = panel.find((i) => i.id === b.id) || panel.find((i) => norm(i.titulo) === norm(b.nombre));
+        const o = { id: b.id, nombre: b.nombre, comuna: b.comuna || "", entorno: b.entorno || "", niveles: b.niveles || "", alias: b.alias || "",
+          caracteristicas: b.caracteristicas || "", enlaces: "", rbd: b.rbd || "", base: b, estado: "original" };
+        if (!it) return o;
+        usados.add(it.id);
+        if (!it.activo) return Object.assign(o, { estado: "eliminado", item: it });
+        return Object.assign(o, { nombre: it.titulo, comuna: it.comuna, entorno: it.entorno, niveles: it.niveles, alias: it.claves,
+          caracteristicas: it.texto, enlaces: it.enlaces, estado: "editado", item: it }, peiDe(it));
+      });
+      panel.filter((i) => !usados.has(i.id)).forEach((it) => lista.push(Object.assign({ id: it.id, nombre: it.titulo, comuna: it.comuna, entorno: it.entorno,
+        niveles: it.niveles, alias: it.claves, caracteristicas: it.texto, enlaces: it.enlaces, estado: it.activo ? "nuevo" : "oculto", item: it }, peiDe(it))));
+      return lista;
+    }
+    function documentos() {
+      const panel = items.filter((i) => i.tipo === "documento");
+      const usados = new Set();
+      const lista = DOCUMENTOS.map((b) => {
+        const it = panel.find((i) => i.id === b.id);
+        const enl = [b.url && /^https?:/.test(b.url) ? "Sitio oficial | " + b.url : "", b.pdfOficial && b.pdfOficial !== b.url ? "PDF oficial | " + b.pdfOficial : ""].filter(Boolean).join("\n");
+        const o = { id: b.id, titulo: b.titulo, organismo: b.org, anio: b.anio || "", categoria: b.cat, texto: b.resumen, enlaces: enl, claves: "", base: b, estado: "original" };
+        if (!it) return o;
+        usados.add(it.id);
+        if (!it.activo) return Object.assign(o, { estado: "eliminado", item: it });
+        return Object.assign(o, { titulo: it.titulo, organismo: it.organismo || b.org, anio: it.anio, categoria: it.categoria || b.cat, texto: it.texto,
+          enlaces: it.enlaces, claves: it.claves, estado: "editado", item: it });
+      });
+      panel.filter((i) => !usados.has(i.id)).forEach((it) => lista.push({ id: it.id, titulo: it.titulo, organismo: it.organismo, anio: it.anio,
+        categoria: it.categoria || "servicio", texto: it.texto, enlaces: it.enlaces, claves: it.claves, estado: it.activo ? "nuevo" : "oculto", item: it }));
+      return lista;
+    }
+    // Perfiles de cargo: base (conocimiento.js) + panel. categoria = rol, claves = normativa
+    function perfiles() {
+      const panel = items.filter((i) => i.tipo === "perfil");
+      const usados = new Set();
+      const lista = PERFILES_BASE.map((b) => {
+        const it = panel.find((i) => i.id === b.id);
+        const o = { id: b.id, titulo: b.nombre, rolPerfil: b.rol, texto: b.texto, normativa: b.normativa, enlaces: "", base: b, estado: "original" };
+        if (!it) return o;
+        usados.add(it.id);
+        if (!it.activo) return Object.assign(o, { estado: "eliminado", item: it });
+        return Object.assign(o, { titulo: it.titulo, rolPerfil: it.categoria || b.rol, texto: it.texto, normativa: it.claves, enlaces: it.enlaces, estado: "editado", item: it });
+      });
+      panel.filter((i) => !usados.has(i.id)).forEach((it) => lista.push({ id: it.id, titulo: it.titulo, rolPerfil: it.categoria || "slep", texto: it.texto,
+        normativa: it.claves, enlaces: it.enlaces, estado: it.activo ? "nuevo" : "oculto", item: it }));
+      return lista;
+    }
+    const informaciones = () => items.filter((i) => i.tipo === "info" || i.tipo === "enlace")
+      .map((it) => ({ id: it.id, titulo: it.titulo, texto: it.texto, enlaces: it.enlaces, claves: it.claves, estado: it.activo ? "nuevo" : "oculto", item: it }));
+
+    /* ---------- Pintar ---------- */
+    function pintarTodo() { pintarResumen(); pintarChips(); pintarEst(); pintarFuentes(); pintarPerfiles(); if (!$("#cajaAnadir").innerHTML) mostrarAnadir(tipoNuevo); }
+
+    function pintarResumen() {
+      const ests = establecimientos().filter((e) => e.estado !== "eliminado" && e.estado !== "oculto");
+      const docs = documentos().filter((d) => d.estado !== "eliminado" && d.estado !== "oculto");
+      const cifras = COMUNAS.map((c) => ({ n: ests.filter((e) => e.comuna === c).length, t: c, c: COLOR_COMUNA[c] }))
+        .concat([{ n: docs.length, t: "Documentos en la Biblioteca", c: "#e0559b" }, { n: informaciones().filter((i) => i.estado !== "oculto").length, t: "Informaciones del Servicio", c: "#5b4bd1" },
+          { n: perfiles().filter((o) => o.estado !== "eliminado" && o.estado !== "oculto").length, t: "Perfiles de cargo", c: "#0b8f6a" }]);
+      $("#resumen").innerHTML = `<div class="cifra" style="--c:#1d2633"><strong>${ests.length}</strong><span>Establecimientos en total</span></div>` +
+        cifras.map((x) => `<div class="cifra" style="--c:${x.c}"><strong>${x.n}</strong><span>${esc(x.t)}</span></div>`).join("");
+    }
+    function pintarChips() {
+      const opciones = [["", "Todas"]].concat(COMUNAS.map((c) => [c, c]), [["sin", "Sin comuna"]]);
+      $("#chipsComuna").innerHTML = opciones.map(([v, t]) => `<button data-comuna="${esc(v)}" class="${comunaFiltro === v ? "activo" : ""}">${esc(t)}</button>`).join("");
+    }
+
+    function botonesDe(o, tipo) {
+      const b = [];
+      if (o.estado === "eliminado") b.push(`<button class="btn verde" data-acc="restaurar" data-tipo="${tipo}" data-id="${esc(o.id)}">↩ Restaurar</button>`);
+      else {
+        b.push(`<button class="btn sec" data-acc="editar" data-tipo="${tipo}" data-id="${esc(o.id)}">✏️ Editar</button>`);
+        if (o.estado === "editado") b.push(`<button class="btn sec" data-acc="original" data-tipo="${tipo}" data-id="${esc(o.id)}" title="Deshacer los cambios">↺ Original</button>`);
+        if (o.estado === "oculto") b.push(`<button class="btn verde" data-acc="mostrar" data-tipo="${tipo}" data-id="${esc(o.id)}">👁 Mostrar</button>`);
+        b.push(`<button class="btn peligro" data-acc="eliminar" data-tipo="${tipo}" data-id="${esc(o.id)}">🗑 Eliminar</button>`);
+      }
+      return `<div class="botones">${b.join("")}</div>`;
+    }
+    const sello = (e) => `<span class="sello ${e}">${NOMBRE_ESTADO[e]}</span>`;
+    const textoLargo = (t) => t ? `<p>${esc(t)}</p>${String(t).length > 150 ? `<button class="ver-mas" type="button">Ver más</button>` : ""}` : "";
+
+    function pintarEst() {
+      const q = norm($("#buscarEst").value);
+      const todos = establecimientos().filter((e) => !q || norm([e.nombre, e.alias, e.niveles, e.caracteristicas, e.rbd].join(" ")).includes(q));
+      const grupos = COMUNAS.concat([""]).filter((c) => !comunaFiltro || (comunaFiltro === "sin" ? c === "" : c === comunaFiltro));
+      const html = grupos.map((c) => {
+        const lista = todos.filter((e) => (COMUNAS.includes(e.comuna) ? e.comuna : "") === c).sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+        if (!lista.length) return "";
+        const activos = lista.filter((e) => e.estado !== "eliminado");
+        return `<details class="grupo" open style="--c:${COLOR_COMUNA[c]}"><summary>${c ? "📍 " + esc(c) : "❔ Sin comuna registrada"} <span class="n">${activos.length}</span></summary>
+          <div class="fichas">${lista.map((e) => `
+            <div class="ficha ${e.estado === "eliminado" ? "eliminado" : ""}">
+              <div class="info">
+                <strong>${esc(e.nombre)}</strong>${sello(e.estado)}${e.estado !== "eliminado" ? (tienePEI(e) ? '<span class="sello pei-si">PEI ✓</span>' : '<span class="sello pei-no">Sin PEI</span>') : ""}
+                <small>${[e.niveles, e.entorno, e.rbd ? "RBD " + e.rbd : "", e.alias ? "También: " + e.alias : ""].filter(Boolean).map(esc).join(" · ")}</small>
+                ${textoLargo(e.caracteristicas)}
+              </div>${botonesDe(e, "establecimiento")}
+            </div>`).join("")}</div></details>`;
+      }).join("");
+      $("#listaEst").innerHTML = html || `<p class="vacio">No encontré establecimientos con ese criterio.</p>`;
+    }
+
+    function pintarFuentes() {
+      const q = norm($("#buscarFuente").value);
+      const filtra = (o) => !q || norm([o.titulo, o.organismo, o.texto, o.claves].join(" ")).includes(q);
+      const docs = documentos().filter(filtra);
+      const infos = informaciones().filter(filtra);
+      const grupos = Object.keys(CATEGORIAS_DOC).map((c) => {
+        const C = CATEGORIAS_DOC[c];
+        const lista = docs.filter((d) => (CATEGORIAS_DOC[d.categoria] ? d.categoria : "servicio") === c);
+        if (!lista.length) return "";
+        return `<details class="grupo" ${q ? "open" : ""} style="--c:${C.color}"><summary>${C.emoji} ${esc(C.nombre)} <span class="n">${lista.filter((d) => d.estado !== "eliminado").length}</span></summary>
+          <div class="fichas">${lista.map((d) => `
+            <div class="ficha ${d.estado === "eliminado" ? "eliminado" : ""}">
+              <div class="info"><strong>${esc(d.titulo)}</strong>${sello(d.estado)}
+                <small>${esc([d.organismo, d.anio].filter(Boolean).join(" · "))}</small>${textoLargo(d.texto)}</div>${botonesDe(d, "documento")}
+            </div>`).join("")}</div></details>`;
+      }).join("");
+      $("#listaFuentes").innerHTML =
+        `<h3 class="subtitulo">📄 Documentos y enlaces de la Biblioteca</h3>` + (grupos || `<p class="vacio">Sin resultados.</p>`) +
+        `<h3 class="subtitulo">ℹ️ Información del Servicio (la usa el chat)</h3>` +
+        (infos.length ? `<div class="fichas" style="padding:0">${infos.map((i) => `
+          <div class="ficha"><div class="info"><strong>${esc(i.titulo)}</strong>${sello(i.estado)}<small>Actualizado: ${esc(i.item.actualizado)}</small>${textoLargo(i.texto)}</div>${botonesDe(i, "info")}</div>`).join("")}</div>`
+          : `<p class="vacio">Aún no hay información del Servicio. Puede agregarla en la pestaña <strong>➕ Añadir</strong>.</p>`);
+    }
+
+    const COLOR_ROL = { docente: "#0b8f6a", directivo: "#5b4bd1", asistente: "#d9622b", slep: "#0071ea" };
+    function pintarPerfiles() {
+      const q = norm($("#buscarPerfil").value);
+      const todos = perfiles().filter((o) => !q || norm([o.titulo, o.texto, o.normativa].join(" ")).includes(q));
+      const html = Object.keys(ROLES).map((r) => {
+        const lista = todos.filter((o) => (ROLES[o.rolPerfil] ? o.rolPerfil : "slep") === r);
+        if (!lista.length) return "";
+        return `<details class="grupo" open style="--c:${COLOR_ROL[r] || "#0071ea"}"><summary>${ROLES[r].emoji} ${esc(ROLES[r].nombre)} <span class="n">${lista.filter((o) => o.estado !== "eliminado").length}</span></summary>
+          <div class="fichas">${lista.map((o) => `
+            <div class="ficha ${o.estado === "eliminado" ? "eliminado" : ""}">
+              <div class="info"><strong>${esc(o.titulo)}</strong>${sello(o.estado)}
+                ${o.normativa ? `<small>⚖️ ${esc(o.normativa)}</small>` : ""}${textoLargo(o.texto)}</div>${botonesDe(o, "perfil")}
+            </div>`).join("")}</div></details>`;
+      }).join("");
+      $("#listaPerfiles").innerHTML = html || `<p class="vacio">No encontré cargos con ese criterio.</p>`;
+    }
+
+    /* ---------- Formularios (los mismos para añadir y editar) ---------- */
+    const opcionesCat = (sel) => Object.keys(CATEGORIAS_DOC).map((c) => `<option value="${c}" ${c === sel ? "selected" : ""}>${CATEGORIAS_DOC[c].emoji} ${esc(CATEGORIAS_DOC[c].nombre)}</option>`).join("");
+    function formulario(tipo, v) {
+      v = v || {};
+      const pie = `<div class="acciones"><button class="btn primario" type="submit">💾 Guardar</button><span class="msg-estado estado-form"></span></div>`;
+      if (tipo === "establecimiento") return `
+        <form data-form="establecimiento" data-id="${esc(v.id || "")}">
+          <label>Nombre del establecimiento</label><input type="text" name="titulo" maxlength="200" required value="${esc(v.nombre)}">
+          <div class="fila">
+            <div><label>Comuna</label><select name="comuna"><option value="">—</option>${COMUNAS.map((c) => `<option ${c === v.comuna ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+            <div><label>Entorno</label><select name="entorno"><option value="">—</option>${["Urbano", "Rural", "Mixto (urbano y rural)"].map((c) => `<option ${c === v.entorno ? "selected" : ""}>${c}</option>`).join("")}</select></div>
+          </div>
+          <label>Niveles que imparte</label><input type="text" name="niveles" maxlength="200" value="${esc(v.niveles)}" placeholder="Ej.: Parvularia a 8° básico">
+          <label>Otros nombres con que se le conoce (opcional, separados por coma)</label><input type="text" name="claves" maxlength="500" value="${esc(v.alias)}" placeholder="Ej.: sigla o nombre corto">
+          <label>Características (según el PAL)</label><textarea name="texto" maxlength="8000" placeholder="Programas (PIE, SEP), focos del PAL, realidad del entorno. Sin datos personales.">${esc(v.caracteristicas)}</textarea>
+          <fieldset class="pei">
+            <legend>📘 Proyecto Educativo Institucional (PEI)</legend>
+            <p class="ayuda">El asistente usa la misión, la visión, los sellos y la historia para alinear sus sugerencias con cada colegio.</p>
+            <details class="pegar-pei"><summary>📋 Pegar el texto del PEI y completar automáticamente</summary>
+              <textarea class="pei-fuente" placeholder="Copie y pegue aquí el PEI (o las partes de misión, visión, sellos e historia). El panel detecta cada parte y llena los campos de abajo; luego puede revisarlos."></textarea>
+              <button class="btn sec" type="button" data-detectar-pei>✨ Detectar misión, visión, sellos e historia</button> <span class="msg-estado pei-estado"></span>
+            </details>
+            <label>🎯 Misión</label><textarea name="mision" maxlength="3000" style="min-height:80px">${esc(v.mision)}</textarea>
+            <label>🔭 Visión</label><textarea name="vision" maxlength="3000" style="min-height:80px">${esc(v.vision)}</textarea>
+            <label>⭐ Sellos educativos</label><textarea name="sellos" maxlength="3000" style="min-height:70px">${esc(v.sellos)}</textarea>
+            <label>📜 Historia o reseña</label><textarea name="historia" maxlength="8000">${esc(v.historia)}</textarea>
+            <label>🔗 Enlace al PEI completo (https://…)</label><input type="text" name="pei" maxlength="500" value="${esc(v.pei)}" placeholder="Ej.: enlace al PDF del PEI en el sitio del colegio o en Mime (mime.mineduc.cl)">
+            <p class="ayuda">Con el enlace, la IA puede consultar el PEI cuando necesite más información, y en el chat aparece el botón «Ver el PEI completo».</p>
+          </fieldset>
+          <label>Otros enlaces (opcional, uno por línea: Título | https://...)</label><textarea name="enlaces" maxlength="3000" style="min-height:60px">${esc(v.enlaces)}</textarea>
+          ${pie}</form>`;
+      if (tipo === "documento") return `
+        <form data-form="documento" data-id="${esc(v.id || "")}">
+          <label>Título del documento o recurso</label><input type="text" name="titulo" maxlength="200" required value="${esc(v.titulo)}">
+          <div class="fila">
+            <div><label>Organismo</label><input type="text" name="organismo" maxlength="120" value="${esc(v.organismo)}" placeholder="Ej.: MINEDUC, CPEIP, SLEP"></div>
+            <div><label>Año</label><input type="text" name="anio" maxlength="10" value="${esc(v.anio)}"></div>
+            <div><label>Categoría en la Biblioteca</label><select name="categoria">${opcionesCat(v.categoria || "servicio")}</select></div>
+          </div>
+          <label>Resumen (una idea por línea; puede usar **negritas**)</label><textarea name="texto" maxlength="8000">${esc(v.texto)}</textarea>
+          <label>Enlaces (uno por línea: Título | https://... — el primero es el principal)</label><textarea name="enlaces" maxlength="3000" style="min-height:70px" placeholder="Sitio oficial | https://www.mineduc.cl/...">${esc(v.enlaces)}</textarea>
+          <label>Palabras clave para el chat (separadas por coma)</label><input type="text" name="claves" maxlength="500" value="${esc(v.claves)}">
+          ${pie}</form>`;
+      if (tipo === "perfil") return `
+        <form data-form="perfil" data-id="${esc(v.id || "")}">
+          <div class="fila">
+            <div><label>Rol al que pertenece</label><select name="categoria">${Object.keys(ROLES).map((r) => `<option value="${r}" ${r === (v.rolPerfil || "slep") ? "selected" : ""}>${ROLES[r].emoji} ${esc(ROLES[r].nombre)}</option>`).join("")}</select></div>
+            <div><label>Nombre del cargo, área o función</label><input type="text" name="titulo" maxlength="200" required value="${esc(v.titulo)}" placeholder="Ej.: Encargado/a de compras públicas"></div>
+          </div>
+          <label>Funciones y responsabilidades</label>
+          <textarea name="texto" maxlength="8000" placeholder="Qué hace este cargo: funciones principales, tareas habituales, con quién se coordina, qué decisiones toma y cuáles no le corresponden.">${esc(v.texto)}</textarea>
+          <label>Normativa y referentes que rigen el cargo</label>
+          <textarea name="claves" maxlength="500" style="min-height:60px" placeholder="Ej.: Ley N° 21.040, Ley N° 19.886, Ley N° 21.719">${esc(v.normativa)}</textarea>
+          <label>Enlaces (opcional: descripción oficial del cargo, normativa — Título | https://...)</label>
+          <textarea name="enlaces" maxlength="3000" style="min-height:60px">${esc(v.enlaces)}</textarea>
+          <p class="ayuda">Al iniciar el chat, la persona elige su cargo y el asistente ajusta sus sugerencias a estas funciones y a la normativa indicada.</p>
+          ${pie}</form>`;
+      if (tipo === "info") return `
+        <form data-form="info" data-id="${esc(v.id || "")}">
+          <label>Título</label><input type="text" name="titulo" maxlength="200" required value="${esc(v.titulo)}">
+          <label>Contenido (puede usar **negritas** y listas con guiones)</label><textarea name="texto" maxlength="8000">${esc(v.texto)}</textarea>
+          <label>Enlaces (opcional, uno por línea: Título | https://...)</label><textarea name="enlaces" maxlength="3000" style="min-height:60px">${esc(v.enlaces)}</textarea>
+          <label>Palabras clave (con que la gente preguntaría por este tema)</label><input type="text" name="claves" maxlength="500" value="${esc(v.claves)}">
+          ${pie}</form>`;
+      return `
+        <h2>📥 Carga masiva de establecimientos</h2>
+        <p>Una línea por establecimiento, con los campos separados por punto y coma:<br><code>Nombre ; Comuna ; Entorno ; Niveles ; Características</code></p>
+        <textarea id="masivo" placeholder="Escuela Ejemplo ; Florida ; Rural ; Parvularia a 8° básico ; Sello medioambiental, multigrado, foco en lectura inicial"></textarea>
+        <div class="acciones"><button class="btn primario" type="button" id="btnMasivo">Cargar establecimientos</button><span class="msg-estado" id="estadoMasivo"></span></div>`;
+    }
+
+    async function guardarForm(form) {
+      const tipo = form.dataset.form;
+      const f = Object.fromEntries(new FormData(form).entries());
+      const salida = form.querySelector(".estado-form");
+      if (PERSONALES.test([f.titulo, f.texto, f.claves, f.mision, f.vision, f.sellos, f.historia].join(" "))) { estado(salida, "⚠️ Detecté un RUT, correo o teléfono. Quítelo antes de guardar.", "error"); return; }
+      if (f.pei && !/^https?:\/\//.test(f.pei.trim())) { estado(salida, "⚠️ El enlace al PEI debe comenzar con https://", "error"); return; }
+      if (String(f.enlaces || "").split("\n").some((l) => l.trim() && !/https?:\/\//.test(l))) { estado(salida, "⚠️ Cada enlace debe incluir https://", "error"); return; }
+      const item = Object.assign({ id: form.dataset.id, tipo, activo: true }, f);
+      const boton = form.querySelector("button[type=submit]"); boton.disabled = true; estado(salida, "Guardando…");
+      try {
+        await llamar("admin-guardar", { item });
+        estado(salida, "✅ Guardado. Ya está disponible en el asistente.", "ok");
+        if (form.closest("dialog")) setTimeout(() => $("#dlg").close(), 700); else form.reset();
+        cargar();
+      } catch (err) { estado(salida, err.message, "error"); }
+      finally { boton.disabled = false; }
+    }
+
+    function mostrarAnadir(tipo) {
+      tipoNuevo = tipo;
+      document.querySelectorAll("#opcionesAnadir button").forEach((b) => b.classList.toggle("activo", b.dataset.nuevo === tipo));
+      const titulos = { perfil: "👥 Nuevo perfil de cargo", establecimiento: "🏫 Nuevo establecimiento", documento: "📄 Nuevo documento o enlace", info: "ℹ️ Nueva información del Servicio" };
+      $("#cajaAnadir").innerHTML = (titulos[tipo] ? `<h2>${titulos[tipo]}</h2>` : "") + formulario(tipo, { comuna: comunaFiltro && comunaFiltro !== "sin" ? comunaFiltro : "" });
+    }
+
+    /* ---------- Acciones de las fichas ---------- */
+    const buscarObj = (tipo, id) => (tipo === "establecimiento" ? establecimientos() : tipo === "documento" ? documentos() : tipo === "perfil" ? perfiles() : informaciones()).find((o) => o.id === id);
+    async function accion(acc, tipo, id) {
+      const o = buscarObj(tipo, id); if (!o) return;
+      const nombre = o.nombre || o.titulo;
+      try {
+        if (acc === "editar") {
+          $("#dlgTitulo").textContent = "✏️ Editar: " + nombre;
+          $("#dlgCuerpo").innerHTML = (o.estado === "original" ? `<p class="ayuda" style="margin-top:12px">Este registro viene de los archivos del sitio. Al guardar, su versión editada reemplaza a la original (podrá volver a la original cuando quiera).</p>` : "") + formulario(tipo, o);
+          $("#dlg").showModal(); return;
+        }
+        if (acc === "eliminar") {
+          if (o.estado === "original" || o.estado === "editado") {
+            if (!confirm(`¿Quitar "${nombre}" del asistente?\n\nPodrá restaurarlo después con el botón "Restaurar".`)) return;
+            await llamar("admin-guardar", { item: Object.assign({}, o.item || {}, { id: o.id, tipo, titulo: nombre, activo: false }) });
+          } else {
+            if (!confirm(`¿Eliminar definitivamente "${nombre}"?`)) return;
+            await llamar("admin-eliminar", { id: o.item.id });
+          }
+        }
+        if (acc === "restaurar" || acc === "original") {
+          if (acc === "original" && !confirm(`¿Descartar los cambios de "${nombre}" y volver a la versión original?`)) return;
+          await llamar("admin-eliminar", { id: o.item.id });
+        }
+        if (acc === "mostrar") await llamar("admin-guardar", { item: Object.assign({}, o.item, { activo: true }) });
+        cargar();
+      } catch (err) { alert(err.message); }
+    }
+
+    async function cargaMasiva() {
+      const lineas = $("#masivo").value.split("\n").map((l) => l.trim()).filter(Boolean);
+      if (!lineas.length) return;
+      if (PERSONALES.test(lineas.join(" "))) { estado($("#estadoMasivo"), "⚠️ Hay un RUT, correo o teléfono. Quítelo antes de cargar.", "error"); return; }
+      $("#btnMasivo").disabled = true;
+      let ok = 0; const errores = [];
+      for (const [n, l] of lineas.entries()) {
+        const [titulo, comuna, entorno, niveles, ...resto] = l.split(";").map((x) => x.trim());
+        estado($("#estadoMasivo"), `Cargando ${n + 1} de ${lineas.length}…`);
+        try { await llamar("admin-guardar", { item: { tipo: "establecimiento", titulo, comuna, entorno, niveles, texto: resto.join("; "), activo: true } }); ok++; }
+        catch (err) { errores.push(`Línea ${n + 1}: ${err.message}`); }
+      }
+      estado($("#estadoMasivo"), `✅ ${ok} cargados.` + (errores.length ? ` ⚠️ ${errores.join(" · ")}` : ""), errores.length ? "error" : "ok");
+      if (!errores.length) $("#masivo").value = "";
+      $("#btnMasivo").disabled = false; cargar();
+    }
+
+    /* ---------- Eventos ---------- */
+    $("#formLogin").addEventListener("submit", (e) => { clave = ""; entrar(e); });
+    $("#btnSalir").addEventListener("click", () => { try { sessionStorage.removeItem("slep-admin"); } catch (e) {} location.reload(); });
+    document.querySelector(".tabs").addEventListener("click", (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      document.querySelectorAll(".tabs button").forEach((x) => x.classList.toggle("activa", x === b));
+      ["est", "fuentes", "perfiles", "servicio", "anadir"].forEach((t) => { $("#tab-" + t).hidden = t !== b.dataset.tab; });
+      if (b.dataset.tab === "servicio") cargarServicio();
+    });
+    $("#chipsComuna").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; comunaFiltro = b.dataset.comuna; pintarChips(); pintarEst(); });
+    $("#buscarEst").addEventListener("input", pintarEst);
+    $("#buscarFuente").addEventListener("input", pintarFuentes);
+    $("#buscarPerfil").addEventListener("input", pintarPerfiles);
+
+    /* ---------- Servicio de IA: claves adicionales y límite diario ---------- */
+    const ETIQUETA_ESTADO = { "disponible": "✅ disponible", "rechazada": "❌ rechazada por Groq", "vacía": "— sin clave" };
+    async function cargarServicio() {
+      try {
+        const d = await llamar("admin-servicio");
+        $("#usoHoy").textContent = d.usoHoy + " de " + d.limiteDiario;
+        $("#limiteDiario").value = d.limiteDiario;
+        $("#listaClaves").innerHTML =
+          `<div class="ficha"><div class="info"><strong>Clave principal</strong><small>${esc(d.principal.clave || "sin clave")} · ${esc(ETIQUETA_ESTADO[d.principal.estado] || d.principal.estado)}</small>` +
+          `<p class="ayuda" style="margin-top:4px">Se cambia en Apps Script (propiedad CLAVE_GROQ).</p></div></div>` +
+          d.extras.map((x) => `<div class="ficha"><div class="info"><strong>Clave adicional ${x.posicion}</strong>` +
+            `<small>${x.clave ? esc(x.clave) + " · " : ""}${esc(ETIQUETA_ESTADO[x.estado] || x.estado)}</small>` +
+            `<div class="fila" style="margin-top:6px"><div><input type="password" autocomplete="off" placeholder="${x.clave ? "Reemplazar por otra clave gsk_…" : "Pegue aquí una clave gsk_…"}" data-clave="${x.posicion}"></div></div>` +
+            `<span class="msg-estado" data-estado-clave="${x.posicion}"></span></div>` +
+            `<div class="botones"><button class="btn primario" type="button" data-guardar-clave="${x.posicion}">Guardar</button>` +
+            (x.clave ? `<button class="btn peligro" type="button" data-quitar-clave="${x.posicion}">Quitar</button>` : "") + `</div></div>`).join("");
+      } catch (err) { $("#listaClaves").innerHTML = `<p class="vacio">No se pudo cargar: ${esc(err.message)}. ¿Actualizó el Apps Script a la versión groq-11?</p>`; }
+    }
+    $("#listaClaves").addEventListener("click", async (e) => {
+      const g = e.target.closest("[data-guardar-clave]"), q = e.target.closest("[data-quitar-clave]");
+      if (g) {
+        const pos = g.dataset.guardarClave, input = document.querySelector(`[data-clave="${pos}"]`), salida = document.querySelector(`[data-estado-clave="${pos}"]`);
+        const clave = input.value.trim();
+        if (!/^gsk_\w{20,}$/.test(clave)) { estado(salida, "⚠️ La clave debe empezar con gsk_ y estar completa.", "error"); return; }
+        g.disabled = true; estado(salida, "Probando la clave con Groq…");
+        // Va en "claveGroq": el campo "clave" es la clave de acceso al panel
+        try { await llamar("admin-clave-guardar", { posicion: Number(pos), claveGroq: clave }); input.value = ""; estado(salida, "✅ Clave guardada y verificada.", "ok"); setTimeout(cargarServicio, 900); }
+        catch (err) { estado(salida, err.message, "error"); } finally { g.disabled = false; }
+      }
+      if (q && confirm("¿Quitar esta clave adicional?")) {
+        try { await llamar("admin-clave-eliminar", { posicion: Number(q.dataset.quitarClave) }); cargarServicio(); } catch (err) { alert(err.message); }
+      }
+    });
+    $("#btnProbarClaves").addEventListener("click", async () => {
+      estado($("#estadoClaves"), "Probando…");
+      try { const d = await llamar("admin-claves-probar"); estado($("#estadoClaves"), "Principal: " + d.resultados[0] + " · " + d.resultados.slice(1).map((r, i) => "Adicional " + (i + 1) + ": " + r).join(" · "), "ok"); cargarServicio(); }
+      catch (err) { estado($("#estadoClaves"), err.message, "error"); }
+    });
+    $("#btnLimite").addEventListener("click", async () => {
+      const n = Number($("#limiteDiario").value.replace(/\D/g, ""));
+      try { await llamar("admin-limite-guardar", { limite: n }); estado($("#estadoLimite"), "✅ Límite guardado.", "ok"); cargarServicio(); }
+      catch (err) { estado($("#estadoLimite"), err.message, "error"); }
+    });
+    $("#opcionesAnadir").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) mostrarAnadir(b.dataset.nuevo); });
+    document.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-acc]"); if (b) return accion(b.dataset.acc, b.dataset.tipo, b.dataset.id);
+      const vm = e.target.closest(".ver-mas"); if (vm) { const p = vm.previousElementSibling; p.classList.toggle("abierto"); vm.textContent = p.classList.contains("abierto") ? "Ver menos" : "Ver más"; }
+      const dp = e.target.closest("[data-detectar-pei]");
+      if (dp) {   // Llena misión, visión, sellos e historia a partir del PEI pegado
+        const form = dp.closest("form"), salida = form.querySelector(".pei-estado");
+        const r = detectarPEI(form.querySelector(".pei-fuente").value);
+        const nombres = { mision: "misión", vision: "visión", sellos: "sellos", historia: "historia" };
+        const hallados = Object.keys(r);
+        hallados.forEach((k) => { form.elements[k].value = r[k]; });
+        estado(salida, hallados.length ? `✅ Completé: ${hallados.map((k) => nombres[k]).join(", ")}. Revise el texto antes de guardar.` :
+          "No encontré los títulos «Misión», «Visión», «Sellos» o «Historia/Reseña histórica». Puede copiar cada parte directamente en su campo.", hallados.length ? "ok" : "error");
+      }
+      if (e.target.id === "btnMasivo") cargaMasiva();
+    });
+    document.addEventListener("submit", (e) => { const f = e.target.closest("[data-form]"); if (f) { e.preventDefault(); guardarForm(f); } });
+    $("#dlgCerrar").addEventListener("click", () => $("#dlg").close());
+
+    if (clave) entrar();
+  })();
+  </script>
+</body>
+</html>
