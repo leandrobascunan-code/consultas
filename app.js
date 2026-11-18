@@ -2469,6 +2469,44 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   if (esIOS && !instalada) mostrarInstalar(true);
   btnInstalar.addEventListener("click", instalar);
   btnInstalarTop.addEventListener("click", instalar);
+
+  /* Invitación a instalar en el celular: aparece sola (sin buscar en el menú).
+     Los navegadores exigen que la persona toque «Instalar» al menos una vez: no se puede instalar sin su acción.
+     Android: un toque abre la confirmación del teléfono. iPhone: Safari no permite instalar desde la página,
+     así que se muestran los 2 pasos. Si toca «Ahora no», no vuelve a aparecer en 7 días. */
+  const esCelular = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && window.innerWidth < 900);
+  function ofrecerInstalacion() {
+    if (instalada || !esCelular || document.querySelector(".invitar-instalar") || (!avisoInstalar && !esIOS)) return;
+    try { if (Date.now() - Number(localStorage.getItem("slep-ia-instalar-no") || 0) < 7 * 864e5) return; } catch (e) { /* sin almacenamiento */ }
+    const v = document.createElement("div");
+    v.className = "invitar-instalar"; v.setAttribute("role", "dialog"); v.setAttribute("aria-label", "Instalar la aplicación");
+    v.innerHTML = `<img src="icon-192.png" alt="" class="inv-icono">
+      <div class="inv-texto"><strong>Instala el Asistente en tu celular</strong>
+        <span>${avisoInstalar ? "Queda como una app más: se abre con un toque y a pantalla completa." :
+          "En Safari toca <b>Compartir</b> <span class=\"inv-compartir\" aria-hidden=\"true\">⬆</span> y luego <b>«Agregar a inicio»</b>."}</span></div>
+      <div class="inv-botones">${avisoInstalar ? `<button type="button" class="inv-si">📲 Instalar</button>` : ""}<button type="button" class="inv-no">${avisoInstalar ? "Ahora no" : "Entendido"}</button></div>`;
+    document.body.appendChild(v);
+    // Justo sobre el cuadro de texto, sin taparlo
+    const caja = document.querySelector(".composer-box");
+    if (caja) v.style.bottom = Math.max(12, window.innerHeight - caja.getBoundingClientRect().top + 10) + "px";
+    setTimeout(() => v.classList.add("visible"), 40);   // animación de entrada
+    const cerrar = (recordar) => {
+      if (recordar) { try { localStorage.setItem("slep-ia-instalar-no", String(Date.now())); } catch (e) { /* nada */ } }
+      v.classList.remove("visible"); setTimeout(() => v.remove(), 350);
+    };
+    const si = v.querySelector(".inv-si");
+    if (si) si.addEventListener("click", async () => {
+      if (!avisoInstalar) return cerrar(false);
+      avisoInstalar.prompt();
+      const r = await avisoInstalar.userChoice.catch(() => ({}));
+      avisoInstalar = null; mostrarInstalar(false);
+      cerrar(r && r.outcome !== "accepted");
+    });
+    v.querySelector(".inv-no").addEventListener("click", () => cerrar(true));
+  }
+  window.addEventListener("beforeinstallprompt", () => setTimeout(ofrecerInstalacion, 6000));   // Android: cuando el navegador lo permite
+  setTimeout(ofrecerInstalacion, 15000);   // iPhone (o si el aviso de Android ya llegó)
+  window.addEventListener("appinstalled", () => { const v = document.querySelector(".invitar-instalar"); if (v) v.remove(); });
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
   }

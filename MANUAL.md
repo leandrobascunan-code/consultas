@@ -162,6 +162,13 @@ Si los documentos del asistente no responden la consulta, la IA puede buscar en 
 - **Fila de espera:** si Google (≈30 ejecuciones simultáneas) o Groq están saturados, el chat reintenta solo hasta 4 veces (≈50 s), con pausas distintas para cada persona.
 - ⚠️ **Groq aplica los límites por cuenta:** las claves adicionales deben ser de **cuentas distintas**. En el plan gratuito cada cuenta permite ≈8.000 tokens por minuto y ≈200.000 por día por modelo; para un uso intensivo y sostenido conviene el plan de pago por uso de Groq (Developer).
 
+## 5g. Excel de establecimientos, más claves e instalación (Apps Script groq-13)
+
+- **⬇️ Descargar lista (Excel)** (pestaña Establecimientos): todos los establecimientos con Comuna, **RBD** y su PEI actual (misión, visión, sellos, historia y enlace), con las mismas columnas del modelo.
+- **📥 Importar PEI desde Excel**: lee un archivo .xlsx/.csv con las columnas *Establecimiento, Comuna, RBD, Misión, Visión, Sellos educativos, Historia o reseña, PEI completo* (reconoce los títulos aunque cambie el orden y lee el enlace real del hipervínculo «Ver PEI»). Asocia cada fila por **RBD** (o por nombre), muestra una vista previa y guarda todo de una vez (acción `admin-guardar-lote`). Conserva las características del PAL; opción para no reemplazar el PEI ya cargado y para agregar como nuevos los que no coincidan. Rechaza RUT, correos y teléfonos.
+- **Claves de IA**: hasta **10 claves adicionales** (además de la principal), agregadas una a una en «🔑 Servicio de IA».
+- **Instalación en el celular**: a los pocos segundos aparece una invitación «Instala el Asistente en tu celular». En Android, un toque en *Instalar* abre la confirmación del teléfono; en iPhone se indican los 2 pasos (Compartir → Agregar a inicio), porque Safari no permite instalar desde la página. «Ahora no» la oculta por 7 días.
+
 ## 6. Registro de cambios
 
 | Fecha | Cambio | Responsable |

@@ -42,6 +42,11 @@
     .ayuda { font-size: .78rem; color: var(--texto-2); margin-top: 4px; }
     .aviso { background: var(--amarillo-suave); border-left: 5px solid var(--slep-amarillo); border-radius: 12px; padding: 12px 14px; font-size: .86rem; margin-bottom: 14px; }
     .vacio { text-align: center; color: var(--texto-2); padding: 20px; }
+    .g-tabla-imp { max-height: 340px; overflow: auto; border: 1px solid var(--borde); border-radius: 12px; margin: 10px 0; }
+    .g-tabla-imp table { width: 100%; border-collapse: collapse; font-size: .8rem; }
+    .g-tabla-imp th { position: sticky; top: 0; background: #1d2633; color: #fff; text-align: left; padding: 6px 8px; }
+    .g-tabla-imp td { padding: 5px 8px; border-top: 1px solid var(--borde); }
+    .g-tabla-imp tr.sin-coinc td { background: var(--rojo-suave); }
 
     /* Resumen */
     .resumen { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
@@ -155,7 +160,11 @@
       <section id="tab-est">
         <div class="herr">
           <input type="text" id="buscarEst" placeholder="🔍 Buscar colegio, nivel o característica…">
+          <button class="btn sec" type="button" id="btnDescargarLista" title="Lista de establecimientos con su RBD y su PEI, en Excel">⬇️ Descargar lista (Excel)</button>
+          <button class="btn primario" type="button" id="btnImportarPEI" title="Completar misión, visión, sellos, historia y PEI desde un Excel">📥 Importar PEI desde Excel</button>
+          <input type="file" id="archivoPEI" accept=".xlsx,.xls,.csv" hidden>
         </div>
+        <section class="tarjeta" id="cajaImportar" hidden></section>
         <div class="chips" id="chipsComuna"></div>
         <div id="listaEst"><p class="vacio">Cargando…</p></div>
       </section>
@@ -180,8 +189,9 @@
       <section id="tab-servicio" hidden>
         <div class="tarjeta">
           <h2>🔑 Claves de la IA (Groq)</h2>
-          <p>Además de la clave principal, puede agregar <strong>hasta 3 claves</strong>. El asistente reparte las consultas entre ellas y, si una se agota, sigue con la siguiente; si todas se agotan con el modelo principal, usa modelos de respaldo.</p>
+          <p>Además de la clave principal, puede agregar <strong>hasta 10 claves</strong> (una a la vez). El asistente reparte las consultas entre ellas y, si una se agota, sigue con la siguiente; si todas se agotan con el modelo principal, usa modelos de respaldo.</p>
           <div class="aviso">⚠️ <strong>Importante:</strong> Groq aplica los límites <strong>por cuenta</strong>. Cada clave adicional debe crearse en una <strong>cuenta de Groq distinta</strong> (otra persona u otro correo) en <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a>; varias claves de una misma cuenta no suman capacidad.</div>
+          <p class="ayuda" id="cuentaClaves" style="font-weight:700"></p>
           <div id="listaClaves"><p class="vacio">Cargando…</p></div>
           <div class="acciones"><button class="btn sec" type="button" id="btnProbarClaves">🔍 Probar todas las claves</button><span class="msg-estado" id="estadoClaves"></span></div>
           <p class="ayuda">Las claves se guardan solo en el servidor (Apps Script) y aquí se muestran enmascaradas. Nunca quedan en GitHub.</p>
@@ -593,6 +603,164 @@
     $("#buscarFuente").addEventListener("input", pintarFuentes);
     $("#buscarPerfil").addEventListener("input", pintarPerfiles);
 
+    /* ---------- Excel: lista de establecimientos con RBD y carga del PEI ---------- */
+    // SheetJS (lee y crea archivos Excel) se carga solo cuando se usa
+    let promesaXLSX = null;
+    function cargarXLSX() {
+      if (window.XLSX) return Promise.resolve();
+      if (!promesaXLSX) promesaXLSX = new Promise((ok, mal) => {
+        const s = document.createElement("script"); s.src = "https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js";
+        s.onload = () => ok(); s.onerror = () => { promesaXLSX = null; mal(new Error("No se pudo cargar el lector de Excel (¿sin conexión?)")); };
+        document.head.appendChild(s);
+      });
+      return promesaXLSX;
+    }
+    const COLUMNAS_PEI = ["Establecimiento", "Comuna", "RBD", "🎯 Misión", "🔭 Visión", "⭐ Sellos educativos", "📜 Historia o reseña", "🔗 PEI completo"];
+    const rbdDe = (e) => String(e.rbd || (String(e.id).match(/^rbd-(\d+)/) || [])[1] || "");
+    function establecimientosVigentes() {
+      return establecimientos().filter((e) => e.estado !== "eliminado" && e.estado !== "oculto")
+        .sort((a, b) => (a.comuna || "zzz").localeCompare(b.comuna || "zzz", "es") || a.nombre.localeCompare(b.nombre, "es"));
+    }
+    async function descargarLista() {
+      const lista = establecimientosVigentes();
+      const filas = lista.map((e) => [e.nombre, e.comuna || "", rbdDe(e), e.mision || "", e.vision || "", e.sellos || "", e.historia || "", e.pei || ""]);
+      const fecha = new Date().toISOString().slice(0, 10);
+      try {
+        await cargarXLSX();
+        const hoja = XLSX.utils.aoa_to_sheet([COLUMNAS_PEI].concat(filas));
+        // El enlace al PEI queda como hipervínculo (igual que en el modelo)
+        filas.forEach((f, i) => {
+          if (!f[7]) return;
+          const ref = XLSX.utils.encode_cell({ r: i + 1, c: 7 });
+          hoja[ref] = { t: "s", v: "Ver PEI" + (f[2] ? " (RBD " + f[2] + ")" : ""), l: { Target: f[7] } };
+        });
+        hoja["!cols"] = [{ wch: 46 }, { wch: 14 }, { wch: 9 }, { wch: 60 }, { wch: 60 }, { wch: 45 }, { wch: 70 }, { wch: 22 }];
+        hoja["!autofilter"] = { ref: hoja["!ref"] };
+        const libro = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(libro, hoja, "Establecimientos");
+        XLSX.writeFile(libro, `Establecimientos_SLEP_Andalien_Sur_RBD_PEI_${fecha}.xlsx`);
+      } catch (err) {   // sin conexión: se entrega como CSV (también se abre en Excel)
+        const csv = [COLUMNAS_PEI].concat(filas).map((f) => f.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(";")).join("\r\n");
+        const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8" }));
+        a.download = `Establecimientos_SLEP_Andalien_Sur_RBD_${fecha}.csv`; a.click();
+      }
+    }
+
+    // Reconoce cada columna por su título, aunque cambie el orden o tenga emojis
+    function columnaDe(titulo) {
+      const t = norm(titulo).replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+      if (/^rbd\b|\brbd\b/.test(t)) return "rbd";
+      if (/establecimiento|colegio|escuela|nombre/.test(t)) return "nombre";
+      if (/comuna/.test(t)) return "comuna";
+      if (/mision/.test(t)) return "mision";
+      if (/vision/.test(t)) return "vision";
+      if (/sello/.test(t)) return "sellos";
+      if (/historia|resena/.test(t)) return "historia";
+      if (/pei|proyecto educativo|enlace|link/.test(t)) return "pei";
+      return "";
+    }
+    let filasImportadas = [];
+    async function leerExcel(archivo) {
+      const caja = $("#cajaImportar");
+      caja.hidden = false; caja.innerHTML = `<p>⏳ Leyendo «${esc(archivo.name)}»…</p>`;
+      try {
+        await cargarXLSX();
+        const libro = XLSX.read(await archivo.arrayBuffer(), { type: "array" });
+        const hoja = libro.Sheets[libro.SheetNames[0]];
+        const rango = XLSX.utils.decode_range(hoja["!ref"] || "A1:A1");
+        // Fila de títulos: la primera que tenga "Establecimiento" o "RBD"
+        let filaTit = rango.s.r, mapa = {};
+        for (let r = rango.s.r; r <= Math.min(rango.e.r, rango.s.r + 10); r++) {
+          const m = {};
+          for (let c = rango.s.c; c <= rango.e.c; c++) { const cel = hoja[XLSX.utils.encode_cell({ r, c })]; const k = cel ? columnaDe(cel.v) : ""; if (k && !(k in m)) m[k] = c; }
+          if ("nombre" in m || "rbd" in m) { filaTit = r; mapa = m; break; }
+        }
+        if (!("nombre" in mapa) && !("rbd" in mapa)) throw new Error("No encontré las columnas «Establecimiento» o «RBD» en la primera hoja.");
+        const valor = (r, k) => { if (!(k in mapa)) return ""; const cel = hoja[XLSX.utils.encode_cell({ r, c: mapa[k] })]; return cel ? String(cel.w != null && k !== "pei" ? cel.w : cel.v).trim() : ""; };
+        const enlace = (r) => { if (!("pei" in mapa)) return ""; const cel = hoja[XLSX.utils.encode_cell({ r, c: mapa.pei })];
+          const url = (cel && cel.l && cel.l.Target) || (cel ? String(cel.v) : ""); return /^https?:\/\//i.test(url.trim()) ? url.trim() : ""; };
+        const lista = establecimientos().filter((e) => e.estado !== "eliminado");
+        filasImportadas = [];
+        for (let r = filaTit + 1; r <= rango.e.r; r++) {
+          const f = { nombre: valor(r, "nombre"), comuna: valor(r, "comuna"), rbd: valor(r, "rbd").replace(/\D/g, ""), mision: valor(r, "mision"),
+            vision: valor(r, "vision"), sellos: valor(r, "sellos"), historia: valor(r, "historia"), pei: enlace(r) };
+          if (!f.nombre && !f.rbd) continue;
+          // Coincidencia: primero por RBD; si no hay, por nombre
+          f.est = (f.rbd && lista.find((e) => rbdDe(e) === f.rbd)) || (f.nombre && lista.find((e) => norm(e.nombre) === norm(f.nombre))) || null;
+          f.campos = ["mision", "vision", "sellos", "historia", "pei"].filter((k) => f[k]);
+          filasImportadas.push(f);
+        }
+        mostrarVistaImportar(archivo.name);
+      } catch (err) {
+        caja.innerHTML = `<p class="msg-estado error">⚠️ ${esc(err.message)}</p><div class="acciones"><button class="btn sec" type="button" data-cerrar-importar>Cerrar</button></div>`;
+      }
+    }
+    function mostrarVistaImportar(nombreArchivo) {
+      const ok = filasImportadas.filter((f) => f.est), sin = filasImportadas.filter((f) => !f.est);
+      const conPEI = ok.filter((f) => f.est.mision || f.est.vision || f.est.sellos || f.est.historia || f.est.pei).length;
+      const marca = (f, k) => (f[k] ? "✅" : "—");
+      $("#cajaImportar").innerHTML = `
+        <h2>📥 Vista previa de la importación</h2>
+        <p>Archivo <strong>${esc(nombreArchivo)}</strong>: ${filasImportadas.length} filas · <strong>${ok.length} coinciden</strong> con establecimientos del panel` +
+          (sin.length ? ` · <span class="inactivo">${sin.length} sin coincidencia</span>` : "") + `.</p>
+        ${conPEI ? `<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="reemplazarPEI" checked> Reemplazar el PEI que ya está cargado en ${conPEI} establecimiento(s)</label>
+          <p class="ayuda">Si lo desmarca, solo se completan los campos que hoy están vacíos.</p>` : ""}
+        ${sin.length ? `<label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="agregarNuevos"> Agregar como establecimientos nuevos los ${sin.length} que no coinciden</label>` : ""}
+        <div class="g-tabla-imp"><table>
+          <tr><th>Excel</th><th>RBD</th><th>Se asigna a</th><th>Misión</th><th>Visión</th><th>Sellos</th><th>Historia</th><th>PEI</th></tr>
+          ${filasImportadas.map((f) => `<tr class="${f.est ? "" : "sin-coinc"}"><td>${esc(f.nombre)}</td><td>${esc(f.rbd)}</td><td>${f.est ? esc(f.est.nombre) : "<em>sin coincidencia</em>"}</td>` +
+            `<td>${marca(f, "mision")}</td><td>${marca(f, "vision")}</td><td>${marca(f, "sellos")}</td><td>${marca(f, "historia")}</td><td>${marca(f, "pei")}</td></tr>`).join("")}
+        </table></div>
+        <div class="acciones">
+          <button class="btn primario" type="button" id="btnConfirmarImport">✅ Importar ${ok.length} establecimiento(s)</button>
+          <button class="btn sec" type="button" data-cerrar-importar>Cancelar</button>
+          <span class="msg-estado" id="estadoImport"></span>
+        </div>`;
+    }
+    async function confirmarImportacion() {
+      const reemplazar = !$("#reemplazarPEI") || $("#reemplazarPEI").checked;
+      const nuevos = $("#agregarNuevos") && $("#agregarNuevos").checked;
+      const items = [];
+      filasImportadas.forEach((f) => {
+        if (PERSONALES.test([f.mision, f.vision, f.sellos, f.historia].join(" "))) return;   // nunca datos personales
+        const e = f.est;
+        if (!e && !(nuevos && f.nombre)) return;
+        const pei = {};
+        ["mision", "vision", "sellos", "historia", "pei"].forEach((k) => { pei[k] = f[k] && (reemplazar || !(e && e[k])) ? f[k] : (e ? e[k] || "" : ""); });
+        items.push(Object.assign(e
+          ? { id: e.id, tipo: "establecimiento", titulo: e.nombre, comuna: e.comuna || f.comuna, entorno: e.entorno || "", niveles: e.niveles || "",
+              claves: e.alias || "", texto: e.caracteristicas || "", enlaces: e.enlaces || "", activo: true }
+          : { tipo: "establecimiento", titulo: f.nombre, comuna: f.comuna, activo: true }, pei));
+      });
+      if (!items.length) { estado($("#estadoImport"), "No hay registros para importar.", "error"); return; }
+      const boton = $("#btnConfirmarImport"); boton.disabled = true;
+      let guardados = 0; const errores = [];
+      try {
+        for (let i = 0; i < items.length; i += 40) {   // de a 40 por envío
+          estado($("#estadoImport"), `⏳ Guardando ${Math.min(i + 40, items.length)} de ${items.length}…`);
+          const lote = items.slice(i, i + 40);
+          try {
+            const d = await llamar("admin-guardar-lote", { items: lote });
+            guardados += d.guardados; errores.push(...(d.errores || []));
+          } catch (err) {
+            if (!/no reconocida/i.test(err.message)) throw err;
+            for (const it of lote) {   // Apps Script anterior (sin carga por lote): uno por uno
+              try { await llamar("admin-guardar", { item: it }); guardados++; } catch (e2) { errores.push({ titulo: it.titulo, error: e2.message }); }
+            }
+          }
+        }
+        estado($("#estadoImport"), `✅ ${guardados} establecimiento(s) actualizados con su PEI.` + (errores.length ? ` ⚠️ ${errores.length} con problemas: ` + errores.map((x) => x.titulo + " (" + x.error + ")").join("; ") : ""), errores.length ? "error" : "ok");
+        cargar();
+      } catch (err) { estado($("#estadoImport"), err.message, "error"); }
+      finally { boton.disabled = false; }
+    }
+    $("#btnDescargarLista").addEventListener("click", descargarLista);
+    $("#btnImportarPEI").addEventListener("click", () => { $("#archivoPEI").value = ""; $("#archivoPEI").click(); });
+    $("#archivoPEI").addEventListener("change", (e) => { const f = e.target.files[0]; if (f) leerExcel(f); });
+    $("#cajaImportar").addEventListener("click", (e) => {
+      if (e.target.closest("[data-cerrar-importar]")) { $("#cajaImportar").hidden = true; return; }
+      if (e.target.closest("#btnConfirmarImport")) confirmarImportacion();
+    });
+
     /* ---------- Servicio de IA: claves adicionales y límite diario ---------- */
     const ETIQUETA_ESTADO = { "disponible": "✅ disponible", "rechazada": "❌ rechazada por Groq", "vacía": "— sin clave" };
     async function cargarServicio() {
@@ -603,13 +771,20 @@
         $("#listaClaves").innerHTML =
           `<div class="ficha"><div class="info"><strong>Clave principal</strong><small>${esc(d.principal.clave || "sin clave")} · ${esc(ETIQUETA_ESTADO[d.principal.estado] || d.principal.estado)}</small>` +
           `<p class="ayuda" style="margin-top:4px">Se cambia en Apps Script (propiedad CLAVE_GROQ).</p></div></div>` +
-          d.extras.map((x) => `<div class="ficha"><div class="info"><strong>Clave adicional ${x.posicion}</strong>` +
+          // Claves guardadas + una casilla vacía para agregar otra (hasta el máximo que permite el servidor)
+          (() => {
+            const maximo = d.maximo || 3, usadas = d.extras.filter((x) => x.clave).map((x) => x.posicion);
+            const libre = Array.from({ length: maximo }, (_, i) => i + 1).find((p) => usadas.indexOf(p) < 0);
+            const lista = d.extras.filter((x) => x.clave).concat(libre ? [{ posicion: libre, clave: "", estado: "vacía", nueva: true }] : []);
+            $("#cuentaClaves").textContent = `${usadas.length} de ${maximo} claves adicionales registradas` + (libre ? "" : " (máximo alcanzado)");
+            return lista;
+          })().map((x) => `<div class="ficha"><div class="info"><strong>${x.nueva ? "➕ Agregar otra clave" : "Clave adicional " + x.posicion}</strong>` +
             `<small>${x.clave ? esc(x.clave) + " · " : ""}${esc(ETIQUETA_ESTADO[x.estado] || x.estado)}</small>` +
             `<div class="fila" style="margin-top:6px"><div><input type="password" autocomplete="off" placeholder="${x.clave ? "Reemplazar por otra clave gsk_…" : "Pegue aquí una clave gsk_…"}" data-clave="${x.posicion}"></div></div>` +
             `<span class="msg-estado" data-estado-clave="${x.posicion}"></span></div>` +
             `<div class="botones"><button class="btn primario" type="button" data-guardar-clave="${x.posicion}">Guardar</button>` +
             (x.clave ? `<button class="btn peligro" type="button" data-quitar-clave="${x.posicion}">Quitar</button>` : "") + `</div></div>`).join("");
-      } catch (err) { $("#listaClaves").innerHTML = `<p class="vacio">No se pudo cargar: ${esc(err.message)}. ¿Actualizó el Apps Script a la versión groq-11?</p>`; }
+      } catch (err) { $("#listaClaves").innerHTML = `<p class="vacio">No se pudo cargar: ${esc(err.message)}. ¿Actualizó el Apps Script a la versión groq-13?</p>`; }
     }
     $("#listaClaves").addEventListener("click", async (e) => {
       const g = e.target.closest("[data-guardar-clave]"), q = e.target.closest("[data-quitar-clave]");

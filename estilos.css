@@ -589,3 +589,18 @@ body.con-vista-pdf { overflow: hidden; }
 .pdf-alternativas { flex-basis: 100%; display: flex; flex-wrap: wrap; gap: 6px; }
 .pdf-alternativas button { border: 0; border-radius: 11px; padding: 9px 13px; font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer; background: #fff; color: #1d2633; display: inline-flex; align-items: center; gap: 6px; }
 .pdf-alternativas button:first-child { background: #25d366; color: #fff; }
+
+/* ---------------- Invitación a instalar la app en el celular ---------------- */
+.invitar-instalar { position: fixed; left: 12px; right: 12px; bottom: calc(118px + env(safe-area-inset-bottom)); z-index: 70; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 14px; border-radius: 18px; background: var(--panel); color: var(--texto); border: 1px solid var(--borde);
+  box-shadow: 0 14px 40px rgba(0, 40, 100, .28); transform: translateY(30px); opacity: 0; transition: transform .35s cubic-bezier(.2, .9, .3, 1.2), opacity .3s; }
+.invitar-instalar::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 4px; border-radius: 18px 18px 0 0; background: var(--arcoiris); }
+.invitar-instalar.visible { transform: none; opacity: 1; }
+.inv-icono { width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0; box-shadow: 0 3px 10px rgba(0, 0, 0, .15); }
+.inv-texto { flex: 1; min-width: 170px; display: flex; flex-direction: column; gap: 2px; font-size: .84rem; line-height: 1.35; }
+.inv-texto strong { font-size: .95rem; }
+.inv-compartir { display: inline-grid; place-items: center; width: 20px; height: 20px; border-radius: 5px; background: var(--azul-suave); color: var(--azul); font-weight: 800; }
+.inv-botones { display: flex; gap: 8px; margin-left: auto; }
+.inv-botones button { border: 0; border-radius: 12px; padding: 10px 14px; font: inherit; font-weight: 800; font-size: .86rem; cursor: pointer; }
+.inv-si { background: linear-gradient(135deg, #0071ea, #3abff0); color: #fff; box-shadow: 0 4px 12px rgba(0, 113, 234, .35); }
+.inv-no { background: var(--panel-2); color: var(--texto-2); }
