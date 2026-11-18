@@ -709,7 +709,7 @@
     el.mensajes.appendChild(div);
     if (rol === "bot") activarVisuales(div);   // gráficos animados, videos y "Ver como gráfico" en tablas
     // Respuestas con contenido: botones para descargar en PDF o compartir por WhatsApp / correo
-    if (rol === "bot" && guardar && !enInicio && !div.querySelector('[data-accion="wizard"]')) {
+    if (rol === "bot" && guardar && !enInicio && !div.querySelector('[data-accion^="wizard"]')) {
       const b = div.querySelector(".burbuja");
       if (b.textContent.length > 220 || b.querySelector(".grafico, table")) {
         b.insertAdjacentHTML("beforeend", accionesMsg());
@@ -837,7 +837,10 @@
 
   const REGLA_SIN_PROMPTS = "Responde TÚ directamente con el contenido, la orientación o el material solicitado. " +
     "NO entregues prompts, plantillas de prompt ni instrucciones para usar en otra herramienta de IA, salvo que la persona lo pida explícitamente " +
-    "(por ejemplo, si escribe la palabra «prompt»).";
+    "(por ejemplo, si escribe la palabra «prompt»). " +
+    "El SLEP Andalién Sur aún NO ha establecido lineamientos ni orientaciones oficiales sobre el uso de IA: nunca digas ni insinúes que existen " +
+    "(no escribas «según los lineamientos del SLEP» ni frases similares). Presenta tus aportes como SUGERENCIAS basadas en las fuentes " +
+    "(normativa, MINEDUC, CPEIP, UNESCO, BCN, documentos del Servicio y la serie de manuales, que es una propuesta técnica) y nombra la fuente de cada sugerencia.";
   // Formatos visuales que el chat sabe mostrar (gráficos animados, videos, imágenes)
   const INSTRUCCION_VISUALES = "\n\n### Recursos visuales (opcional)\n" +
     "- Si presentas datos estadísticos REALES, agrégalos además como gráfico con un bloque de código de lenguaje grafico que contenga solo JSON. " +
@@ -872,7 +875,7 @@
     "responde solo con 1 a 3 preguntas breves de aclaración, ofreciendo opciones concretas basadas en el contexto y en el rol de quien consulta. " +
     "Si la consulta es clara, responde directamente." + INSTRUCCION_TITULO;
   const INSTRUCCION_MATERIAL = INSTRUCCION_VISUALES + INSTRUCCION_TITULO + "\n\n### Cómo responder\nLa persona ya entregó todos los datos necesarios. Elabora DIRECTAMENTE el material completo, " +
-    "listo para usar, siguiendo la especificación. NO escribas un prompt ni expliques cómo pedírselo a otra IA. " +
+    "listo para usar, siguiendo la especificación. " + REGLA_SIN_PROMPTS + " " +
     "Contextualiza con la realidad socioeconómica, comunitaria y natural indicada (no agregues referencias geográficas que no estén en la especificación). " +
     "Al final agrega una breve sección «Para revisar antes de usar» (2 a 4 puntos: alineación curricular, pertinencia, sesgos) y la declaración de uso de IA.";
 
@@ -1910,12 +1913,28 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       const ok = document.execCommand("copy"); ta.remove(); return ok;
     }
   }
-  function compartirWhatsApp(msg) {
-    window.open("https://wa.me/?text=" + encodeURIComponent(textoParaEnviar(msg, true, 3500)), "_blank", "noopener");
+  // Toda la conversación como texto: cada consulta con su respuesta, numeradas
+  function textoConversacion(wa, limite) {
+    const lista = respuestasConversacion();
+    const fuerte = (t) => (wa ? `*${t}*` : t);
+    const enc = wa ? `*Conversación con el Asistente IA*\n_SLEP Andalién Sur · ${lista.length} consultas_\n` : `Conversación con el Asistente IA Educativa\nSLEP Andalién Sur · ${lista.length} consultas\n`;
+    const cuerpo = lista.map((m, i) => {
+      const q = preguntaDe(m);
+      return `\n${fuerte((i + 1) + ". " + tituloMsg(m))}\n` + (q ? `${wa ? "_Consulta:_" : "Consulta:"} ${q}\n\n` : "\n") + textoPlano(contenidoMsg(m), wa);
+    }).join("\n\n────────\n");
+    const pie = wa ? "\n\n_Elaborado con apoyo de IA. Verificar antes de usar._" : "\n\n—\nElaborado con apoyo de inteligencia artificial (Asistente IA Educativa, SLEP Andalién Sur). Verificar antes de usar.";
+    let txt = enc + cuerpo;
+    if (limite && txt.length > limite) txt = txt.slice(0, limite).replace(/\s+\S*$/, "") + "…\n\n(Texto resumido: descarga el PDF para ver la conversación completa.)";
+    return txt + pie;
   }
-  function compartirCorreo(msg) {
+  const textoCompartir = (msg, wa, limite, todas) => (todas && respuestasConversacion().length > 1 ? textoConversacion(wa, limite) : textoParaEnviar(msg, wa, limite));
+  function compartirWhatsApp(msg, todas) {
+    window.open("https://wa.me/?text=" + encodeURIComponent(textoCompartir(msg, true, 3500, todas)), "_blank", "noopener");
+  }
+  function compartirCorreo(msg, todas) {
     // Los programas de correo aceptan textos de largo limitado en un enlace: si es largo, se resume y se sugiere adjuntar el PDF
-    location.href = "mailto:?subject=" + encodeURIComponent(tituloMsg(msg) + " · SLEP Andalién Sur") + "&body=" + encodeURIComponent(textoParaEnviar(msg, false, 1700));
+    const asunto = todas && respuestasConversacion().length > 1 ? "Conversación con el Asistente IA" : tituloMsg(msg);
+    location.href = "mailto:?subject=" + encodeURIComponent(asunto + " · SLEP Andalién Sur") + "&body=" + encodeURIComponent(textoCompartir(msg, false, 1700, todas));
   }
   async function compartirNativo(msg) {
     try { await navigator.share({ title: tituloMsg(msg), text: textoParaEnviar(msg, false, 6000) }); } catch (e) { /* cancelado */ }
@@ -1966,10 +1985,52 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   .pdf-hoja .fuente { background: #eef4fb !important; }
   .pdf-hoja .g-svg-circ, .pdf-hoja .g-barra, .pdf-hoja .g-linea { filter: none !important; }
   .pdf-hoja .grafico { background: #fff !important; }
+  .pdf-hoja .doc-indice { background: #f6f9fd; border: 1px solid #e2e9f3; border-radius: 10px; padding: 10px 14px; margin: 0 0 16px; font-size: 9.5pt; }
+  .pdf-hoja .doc-indice ol { margin: 6px 0 0; padding-left: 20px; }
+  .pdf-hoja .doc-parte { margin-top: 18px; }
+  .pdf-hoja .doc-parte + .doc-parte { border-top: 2px solid #e2e9f3; padding-top: 14px; }
+  .pdf-hoja h2.doc-sub { display: flex; align-items: center; gap: 10px; font-size: 14pt; line-height: 1.25; color: #0b2a55; margin: 0 0 8px; }
+  .pdf-hoja h2.doc-sub span { flex: 0 0 auto; display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: #0071ea; color: #fff; font-size: 10.5pt; }
   .pdf-hoja .doc-aviso { margin-top: 20px; padding: 10px 13px; border: 1px solid #e2e9f3; border-radius: 10px; background: #fbfcfe; font-size: 8.5pt; color: #5a6678; break-inside: avoid; page-break-inside: avoid; }`;
 
-  // Arma el contenido del documento a partir de una respuesta del chat
-  function partesDoc(msg) {
+  /* Respuestas de la conversación que se pueden compartir (las que tienen botones de PDF/WhatsApp/correo) */
+  const respuestasConversacion = () => [...el.mensajes.querySelectorAll(".msg.bot")].filter((m) => m.querySelector(".burbuja > .acciones-msg") && !m.querySelector('[data-accion^="wizard"]'));
+
+  // Arma el documento: una respuesta, o la conversación completa (varias respuestas, cada una con su consulta)
+  function partesDoc(msg, todas) {
+    const lista = todas ? respuestasConversacion() : [msg];
+    if (lista.length <= 1) return partesUna(lista[0] || msg);
+    const secciones = lista.map((m, i) => {
+      const s = cuerpoDoc(m);
+      return `<section class="doc-parte"><h2 class="doc-sub"><span>${i + 1}</span> ${escapar(s.titulo)}</h2>` +
+        (s.pregunta ? `<div class="doc-consulta"><strong>Consulta:</strong> ${escapar(s.pregunta)}</div>` : "") +
+        `<div class="burbuja doc-cuerpo">${s.html}</div></section>`;
+    });
+    const titulos = lista.map((m) => tituloMsg(m));
+    const titulo = "Conversación con el Asistente IA Educativa";
+    const extra = `<div class="doc-indice"><strong>Contenido (${lista.length} consultas):</strong><ol>${titulos.map((t) => `<li>${escapar(t)}</li>`).join("")}</ol></div>`;
+    return armarDoc(titulo, "", extra + secciones.join(""), "conversacion", lista.length);
+  }
+  function partesUna(msg) {
+    const s = cuerpoDoc(msg);
+    return armarDoc(s.titulo, s.pregunta, `<div class="burbuja doc-cuerpo">${s.html}</div>`, s.titulo, 1);
+  }
+  function armarDoc(titulo, pregunta, cuerpoHtml, base, cantidad) {
+    const p = leerPerfil() || {};
+    const ahora = new Date(), fecha = ahora.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
+    const filaMeta = (k, v) => (v ? `<tr><th>${k}</th><td>${escapar(v)}</td></tr>` : "");
+    const nombre = normalizar(base).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) + "-" + ahora.toISOString().slice(0, 10) + ".pdf";
+    const html =
+      `<header class="doc-cab"><img src="logo-slep.png" alt="SLEP Andalién Sur"><div><strong>Servicio Local de Educación Pública Andalién Sur</strong><span>Asistente IA Educativa · Documento de trabajo</span></div></header>
+      <h1 class="doc-titulo">${escapar(titulo)}</h1>
+      <table class="doc-meta">${filaMeta("Fecha", fecha)}${filaMeta("Elaborado para", [p.rol && ROLES[p.rol] ? ROLES[p.rol].nombre : "", p.cargo].filter(Boolean).join(" · "))}${filaMeta("Establecimiento o alcance", [p.establecimiento, p.alcance].filter(Boolean).join(" · "))}</table>
+      ${pregunta ? `<div class="doc-consulta"><strong>Consulta:</strong> ${escapar(pregunta)}</div>` : ""}
+      ${cuerpoHtml}
+      <section class="doc-aviso"><strong>Nota:</strong> documento elaborado con apoyo de inteligencia artificial mediante el Asistente IA Educativa del SLEP Andalién Sur. Su contenido es una propuesta que debe ser revisada por la persona responsable antes de usarse; verifique datos, normativa y fuentes. No incluye datos personales de estudiantes, familias ni funcionarios (Ley N° 21.719).</section>`;
+    return { titulo, fecha, nombre, html, cantidad };
+  }
+  // Contenido de una respuesta listo para el documento (gráficos fijos, videos y fuentes como texto)
+  function cuerpoDoc(msg) {
     const c = contenidoMsg(msg);
     c.querySelectorAll(".grafico").forEach((g) => {   // gráficos en su estado final
       g.classList.add("animado");
@@ -1990,24 +2051,14 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       q.innerHTML = fuentes.length ? `<strong>Fuentes consultadas:</strong> ${fuentes.map(escapar).join("; ")}.` : "";
       pm.replaceWith(q);
     });
-    const titulo = tituloMsg(msg), pregunta = preguntaDe(msg), p = leerPerfil() || {};
+    const titulo = tituloMsg(msg), pregunta = preguntaDe(msg);
     // Si el primer encabezado repite el título del documento, se quita (evita títulos duplicados)
     const primero = c.querySelector("h3, h4");
     if (primero) {
       const a = normalizar(primero.textContent.replace(/^[^\wÁÉÍÓÚÑáéíóúñ]+/, "")), b = normalizar(titulo);
       if (a && (a === b || b.startsWith(a))) primero.remove();
     }
-    const ahora = new Date(), fecha = ahora.toLocaleDateString("es-CL", { day: "numeric", month: "long", year: "numeric" });
-    const filaMeta = (k, v) => (v ? `<tr><th>${k}</th><td>${escapar(v)}</td></tr>` : "");
-    const nombre = normalizar(titulo).replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60) + "-" + ahora.toISOString().slice(0, 10) + ".pdf";
-    const html =
-      `<header class="doc-cab"><img src="logo-slep.png" alt="SLEP Andalién Sur"><div><strong>Servicio Local de Educación Pública Andalién Sur</strong><span>Asistente IA Educativa · Documento de trabajo</span></div></header>
-      <h1 class="doc-titulo">${escapar(titulo)}</h1>
-      <table class="doc-meta">${filaMeta("Fecha", fecha)}${filaMeta("Elaborado para", [p.rol && ROLES[p.rol] ? ROLES[p.rol].nombre : "", p.cargo].filter(Boolean).join(" · "))}${filaMeta("Establecimiento o alcance", [p.establecimiento, p.alcance].filter(Boolean).join(" · "))}</table>
-      ${pregunta ? `<div class="doc-consulta"><strong>Consulta:</strong> ${escapar(pregunta)}</div>` : ""}
-      <div class="burbuja doc-cuerpo">${c.innerHTML}</div>
-      <section class="doc-aviso"><strong>Nota:</strong> documento elaborado con apoyo de inteligencia artificial mediante el Asistente IA Educativa del SLEP Andalién Sur. Su contenido es una propuesta que debe ser revisada por la persona responsable antes de usarse; verifique datos, normativa y fuentes. No incluye datos personales de estudiantes, familias ni funcionarios (Ley N° 21.719).</section>`;
-    return { titulo, fecha, nombre, html };
+    return { titulo, pregunta, html: c.innerHTML };
   }
 
   // Los gráficos usan estilos de la hoja CSS: para convertirlos en imagen se copian como atributos
@@ -2074,22 +2125,27 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
       const W = cont.offsetWidth, H = Math.ceil(cont.scrollHeight), base = cont.getBoundingClientRect().top;
       // Posibles cortes de página: bordes de párrafos, ítems, filas, títulos, gráficos y recuadros
       const cortes = new Set([0, H]);
-      cont.querySelectorAll("p, li, tr, h1, h3, h4, figure, .grafico, .pei-bloque, .nota, .doc-aviso, .doc-consulta, .doc-meta, .doc-cab, pre, .bloque-codigo, table, ul, ol, .pdf-fuentes, .pdf-video, .img-resp")
+      cont.querySelectorAll("p, li, tr, h1, h2, h3, h4, figure, .doc-parte, .doc-indice, .grafico, .pei-bloque, .nota, .doc-aviso, .doc-consulta, .doc-meta, .doc-cab, pre, .bloque-codigo, table, ul, ol, .pdf-fuentes, .pdf-video, .img-resp")
         .forEach((n) => { const r = n.getBoundingClientRect(); if (r.height) { cortes.add(Math.round(r.top - base)); cortes.add(Math.round(r.bottom - base)); } });
       // No cortar justo después de un título o del encabezado de una tabla (quedarían solos al final de la hoja)
       const prohibidos = new Set();
-      cont.querySelectorAll("h1, h3, h4, .g-titulo, tr:first-child").forEach((n) => {
+      cont.querySelectorAll("h1, h2, h3, h4, .g-titulo, tr:first-child, .doc-parte > .doc-consulta").forEach((n) => {
         if (n.tagName === "TR" && !n.querySelector("th")) return;
-        const r = n.getBoundingClientRect(); if (r.height) prohibidos.add(Math.round(r.bottom - base));
+        const r = n.getBoundingClientRect(); if (!r.height) return;
+        // Se prohíbe cortar desde el final del título hasta el comienzo de lo que sigue (incluye el margen entre ambos)
+        const sig = n.nextElementSibling, rs = sig ? sig.getBoundingClientRect() : null;
+        prohibidos.add([Math.round(r.bottom - base) - 2, Math.round((rs && rs.height ? rs.top : r.bottom) - base) + 2]);
       });
-      const lista = [...cortes].filter((c) => c >= 0 && c <= H && ![...prohibidos].some((p) => Math.abs(p - c) <= 2)).sort((a, b) => a - b);
+      const lista = [...cortes].filter((c) => c >= 0 && c <= H && ![...prohibidos].some(([d, h]) => c >= d && c <= h)).sort((a, b) => a - b);
       // Resolución: alta en computador; más liviana en celular (una imagen enorme los deja pegados)
       const movil = (window.innerWidth || 800) < 700 || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-      const escala = Math.max(1, Math.min(movil ? 1.6 : 2, Math.sqrt((movil ? 7e6 : 14e6) / Math.max(1, W * H))));
+      // Documentos largos (p. ej. la conversación completa): se captura hoja por hoja, porque una sola imagen enorme falla en los celulares
+      const porHoja = W * H > (movil ? 7e6 : 14e6);
+      const escala = porHoja ? (movil ? 1.3 : 1.6) : Math.max(1, Math.min(movil ? 1.6 : 2, Math.sqrt((movil ? 7e6 : 14e6) / Math.max(1, W * H))));
       avance && avance("⏳ Creando el PDF…");
-      const lienzo = await window.html2canvas(cont, { scale: escala, backgroundColor: "#ffffff", useCORS: true, logging: false, imageTimeout: 4000,
-        scrollX: 0, scrollY: 0, windowWidth: Math.max(W, document.documentElement.clientWidth), windowHeight: H });
-      window.scrollTo(sx, sy);
+      const capturar = (y, alto) => window.html2canvas(cont, Object.assign({ scale: escala, backgroundColor: "#ffffff", useCORS: true, logging: false, imageTimeout: 4000,
+        scrollX: 0, scrollY: 0, windowWidth: Math.max(W, document.documentElement.clientWidth), windowHeight: H }, alto ? { x: 0, y, width: W, height: alto } : {}));
+      const lienzo = porHoja ? null : await capturar();
       // Hojas A4: márgenes 12 mm a los lados, 14 mm arriba y 18 mm abajo (pie de página)
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ unit: "mm", format: "a4", orientation: "portrait", compress: true });
@@ -2103,14 +2159,30 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
         if (!corte) corte = Math.floor(lim);
         paginas.push([y, corte]); y = corte;
       }
-      paginas.forEach(([a, b], i) => {
+      // En documentos largos se captura por bloques de varias hojas (lo que el equipo aguanta de una vez)
+      const maxAlto = Math.max(altoPx, (movil ? 12e6 : 24e6) / (W * escala * escala));
+      let bloque = null;   // { a, b, lienzo }
+      for (let i = 0; i < paginas.length; i++) {
+        const [a, b] = paginas[i];
         if (i) pdf.addPage();
+        let fuente = lienzo, desde = a;
+        if (porHoja) {
+          if (!bloque || b > bloque.b) {
+            let fin = i; while (fin + 1 < paginas.length && paginas[fin + 1][1] - a <= maxAlto) fin++;
+            avance && avance(`⏳ Creando el PDF… (hojas ${i + 1} a ${fin + 1} de ${paginas.length})`);
+            if (bloque) bloque.lienzo.width = bloque.lienzo.height = 0;
+            bloque = { a, b: paginas[fin][1], lienzo: await capturar(a, paginas[fin][1] - a) };
+          }
+          fuente = bloque.lienzo; desde = a - bloque.a;
+        }
         const trozo = document.createElement("canvas");
-        trozo.width = lienzo.width; trozo.height = Math.max(1, Math.round((b - a) * escala));
+        trozo.width = fuente.width; trozo.height = Math.max(1, Math.round((b - a) * escala));
         const ctx = trozo.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, trozo.width, trozo.height);
-        ctx.drawImage(lienzo, 0, Math.round(a * escala), lienzo.width, trozo.height, 0, 0, trozo.width, trozo.height);
+        ctx.drawImage(fuente, 0, Math.round(desde * escala), fuente.width, trozo.height, 0, 0, trozo.width, trozo.height);
         pdf.addImage(trozo.toDataURL("image/jpeg", 0.9), "JPEG", 12, 14, anchoMM, (b - a) / pxPorMM, undefined, "FAST");
-      });
+        trozo.width = trozo.height = 0;   // libera memoria
+      }
+      window.scrollTo(sx, sy);
       const total = pdf.internal.getNumberOfPages();
       for (let i = 1; i <= total; i++) {   // pie de página con número
         pdf.setPage(i); pdf.setFontSize(8); pdf.setTextColor(122, 134, 150);
@@ -2126,9 +2198,14 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
 
   /* Vista previa dentro de la app: no abre otra pestaña y se cierra con ✕, Esc o «atrás» */
   let vista = null;
-  function abrirVistaPDF(msg, intencion) {
+  function abrirVistaPDF(msg, intencion, todas, reabrir) {
     cerrarVistaPDF(true);
-    const partes = partesDoc(msg);
+    const nResp = respuestasConversacion().length;
+    if (todas === undefined) todas = nResp > 1;   // por defecto se comparte TODA la conversación
+    const partes = partesDoc(msg, todas);
+    const selector = nResp > 1 ? `<div class="pdf-alcance" role="radiogroup" aria-label="Qué compartir">
+        <button type="button" data-pdf="todas" class="${todas ? "activo" : ""}" aria-pressed="${todas}">🗂️ Toda la conversación (${nResp})</button>
+        <button type="button" data-pdf="una" class="${todas ? "" : "activo"}" aria-pressed="${!todas}">📄 Solo esta respuesta</button></div>` : "";
     const v = document.createElement("div");
     v.className = "pdf-vista"; v.setAttribute("role", "dialog"); v.setAttribute("aria-modal", "true"); v.setAttribute("aria-label", "Vista previa del PDF");
     v.innerHTML = `<style>${CSS_DOC}</style>
@@ -2143,13 +2220,14 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
           <button type="button" data-pdf="imprimir" title="Imprimir o guardar como PDF desde el navegador">🖨️</button>
         </div>
       </div>
+      ${selector}
       <div class="pdf-correo" hidden></div>
       <div class="pdf-lienzo"><div class="pdf-escala"><div class="pdf-hoja">${partes.html}</div></div></div>`;
     document.body.appendChild(v);
     document.body.classList.add("con-vista-pdf");
-    vista = { el: v, msg, partes, blob: null, intencion };
+    vista = { el: v, msg, partes, blob: null, intencion, todas };
     // «Atrás» del teléfono cierra la vista previa en vez de salir de la app
-    try { history.pushState({ vistaPDF: true }, ""); } catch (e) { /* sin historial */ }
+    if (!reabrir) try { history.pushState({ vistaPDF: true }, ""); } catch (e) { /* sin historial */ }
     ajustarEscala();
     const actual = vista;
     const t0 = Date.now(), estado = v.querySelector(".pdf-estado");
@@ -2157,7 +2235,7 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     const reloj = setInterval(() => { if (vista !== actual || actual.blob) return clearInterval(reloj);
       const s = Math.round((Date.now() - t0) / 1000); if (s >= 4) estado.textContent = estado.textContent.replace(/\s*\(\d+ s\)$/, "") + ` (${s} s)`; }, 1000);
     // Tiempo máximo: si el equipo tarda demasiado, se ofrecen alternativas en vez de quedar pegado
-    const limite = new Promise((_, mal) => setTimeout(() => mal(new Error("tardó demasiado")), 35000));
+    const limite = new Promise((_, mal) => setTimeout(() => mal(new Error("tardó demasiado")), Math.min(120000, 35000 + 9000 * ((partes.cantidad || 1) - 1))));
     Promise.race([crearPDF(v.querySelector(".pdf-hoja"), partes, avance), limite]).then((blob) => {
       clearInterval(reloj);
       if (vista !== actual) return;
@@ -2280,8 +2358,12 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
     if (a === "cerrar") return cerrarVistaPDF();
     if (a === "imprimir") { window.print(); return; }   // la hoja de estilos de impresión muestra solo el documento
     if (a === "mail-cerrar") { vista.el.querySelector(".pdf-correo").hidden = true; return; }
-    if (a === "texto-wa") { compartirWhatsApp(vista.msg); return; }   // alternativas si el PDF no se pudo crear
-    if (a === "texto-mail") { compartirCorreo(vista.msg); return; }
+    if (a === "todas" || a === "una") {   // cambiar qué se comparte: toda la conversación o solo esta respuesta
+      if ((a === "todas") !== vista.todas) { const { msg, intencion } = vista; abrirVistaPDF(msg, intencion, a === "todas", true); }
+      return;
+    }
+    if (a === "texto-wa") { compartirWhatsApp(vista.msg, vista.todas); return; }   // alternativas si el PDF no se pudo crear
+    if (a === "texto-mail") { compartirCorreo(vista.msg, vista.todas); return; }
     if (!vista.blob) return;
     b.classList.remove("pulso");
     if (a === "bajar") { bajarPDF(); aviso("⬇️ PDF descargado"); }
@@ -2295,7 +2377,11 @@ Al final, indica qué partes debo verificar y qué información te faltó para r
   const msgDe = (b) => (b.dataset.ref ? el.mensajes.querySelector(`.msg[data-id="${b.dataset.ref}"]`) : b.closest(".msg"));
   async function accionMensaje(accion, b) {
     const msg = msgDe(b); if (!msg) return;
-    if (accion === "msg-copiar") { const ok = await copiarTexto(textoParaEnviar(msg, false)); aviso(ok ? "✅ Texto copiado" : "No se pudo copiar"); return; }
+    if (accion === "msg-copiar") {   // copia toda la conversación (si hay más de una respuesta)
+      const n = respuestasConversacion().length;
+      const ok = await copiarTexto(textoCompartir(msg, false, 0, true));
+      aviso(ok ? (n > 1 ? `✅ Conversación completa copiada (${n} respuestas)` : "✅ Texto copiado") : "No se pudo copiar"); return;
+    }
     // PDF, WhatsApp, correo y «Más» comparten el documento en PDF (más ordenado que un texto)
     abrirVistaPDF(msg, { "msg-pdf": "pdf", "msg-wa": "wa", "msg-mail": "mail", "msg-compartir": "compartir" }[accion]);
   }

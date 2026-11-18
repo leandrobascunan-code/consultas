@@ -73,7 +73,7 @@ Escriba **"¿qué establecimientos hay en Florida?"** (u otra comuna) para ver l
 
 Están dirigidos a directivos, jefaturas de UTP, equipos técnico-pedagógicos, convivencia, PIE, docentes y asistentes de la educación.
 
-**Importante:** la serie es una *propuesta técnica*, no lineamientos vigentes. Debe leerse en modo propositivo y no normativo hasta que el Servicio dicte instrucciones formales.`
+**Importante:** la serie es una *propuesta técnica* con sugerencias basadas en fuentes (normativa, MINEDUC, CPEIP, UNESCO). Debe leerse en modo propositivo y no normativo.`
   },
   {
     id: "dependencia", fuente: "M1", titulo: "Establecimientos de dependencia pública (no municipal)",

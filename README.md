@@ -47,4 +47,4 @@ Instrucciones completas, modo IA y mantenimiento en [MANUAL.md](MANUAL.md).
 - Responsable institucional: _[completar]_
 - Responsable técnico: _[completar]_
 
-> Las respuestas se basan en una **propuesta técnica**, no en lineamientos vigentes del Servicio. Este asistente no constituye asesoría jurídica.
+> Las respuestas son **sugerencias basadas en fuentes** (normativa, MINEDUC, CPEIP, UNESCO y documentos del Servicio). Este asistente no constituye asesoría jurídica.
