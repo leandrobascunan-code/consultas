@@ -604,3 +604,28 @@ body.con-vista-pdf { overflow: hidden; }
 .inv-botones button { border: 0; border-radius: 12px; padding: 10px 14px; font: inherit; font-weight: 800; font-size: .86rem; cursor: pointer; }
 .inv-si { background: linear-gradient(135deg, #0071ea, #3abff0); color: #fff; box-shadow: 0 4px 12px rgba(0, 113, 234, .35); }
 .inv-no { background: var(--panel-2); color: var(--texto-2); }
+/* ------------- Celular: todo se ajusta al ancho de la pantalla (sin cuadros que salgan a los costados) ------------- */
+html, body { max-width: 100%; overflow-x: hidden; }
+.mensajes, .msg, .burbuja { min-width: 0; max-width: 100%; }
+.burbuja { overflow-wrap: anywhere; word-break: break-word; }
+.burbuja img, .burbuja svg, .burbuja video, .burbuja iframe, .burbuja .grafico, .burbuja .tabla-wrap, .burbuja pre,
+.burbuja .chips, .burbuja .tarjeta, .burbuja fieldset, .burbuja form { max-width: 100%; }
+.burbuja pre { white-space: pre-wrap; overflow-x: auto; }
+.burbuja a { overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  /* 16 px evita que el iPhone agrande la página al escribir (ese zoom deja el contenido corrido hacia los lados) */
+  .composer textarea, input, select, textarea { font-size: 16px; }
+  .composer { padding-left: 10px; padding-right: 10px; }
+  .msg.bot .burbuja { flex: 1 1 auto; }
+  .chip { max-width: 100%; white-space: normal; text-align: left; }
+  /* Tablas de 3 o más columnas: cada fila como ficha, con el nombre de la columna en cada dato */
+  .mensajes .tabla-wrap { border: 0; overflow: visible; }
+  .mensajes table.t-fichas, .mensajes table.t-fichas tbody, .mensajes table.t-fichas tr,
+  .mensajes table.t-fichas td { display: block; width: 100%; }
+  .mensajes table.t-fichas tr:first-child { display: none; }
+  .mensajes table.t-fichas tr { border: 1px solid var(--borde); border-radius: 12px; margin: 0 0 10px; padding: 6px 10px; background: var(--panel); }
+  .mensajes table.t-fichas td { border: 0; padding: 4px 0; }
+  .mensajes table.t-fichas td + td { border-top: 1px dashed var(--borde); }
+  .mensajes table.t-fichas td::before { content: attr(data-col); display: block; font-size: .75rem; font-weight: 700; color: var(--texto-2); text-transform: uppercase; letter-spacing: .02em; }
+  .mensajes table.t-fichas td:first-child { font-weight: 600; }
+}

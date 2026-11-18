@@ -94,11 +94,13 @@
         const filas = [];
         while (i < lineas.length && /^\|.*\|\s*$/.test(lineas[i].trim())) filas.push(lineas[i++].trim());
         const celdas = (f) => f.slice(1, -1).split("|").map((c) => enLinea(c.trim()));
-        let t = "<div class='tabla-wrap'><table>";
+        // En celular, las tablas de 3 o más columnas se muestran como fichas (cada celda con el nombre de su columna)
+        const cab = filas.length ? celdas(filas[0]).map((c) => c.replace(/<[^>]+>/g, "").replace(/"/g, "&quot;")) : [];
+        let t = `<div class='tabla-wrap'><table${cab.length >= 3 ? " class='t-fichas'" : ""}>`;
         filas.forEach((f, n) => {
           if (/^\|[\s:|-]+\|$/.test(f)) return;
           const tag = n === 0 ? "th" : "td";
-          t += "<tr>" + celdas(f).map((c) => `<${tag}>${c}</${tag}>`).join("") + "</tr>";
+          t += "<tr>" + celdas(f).map((c, k) => `<${tag}${tag === "td" && cab[k] ? ` data-col="${cab[k]}"` : ""}>${c}</${tag}>`).join("") + "</tr>";
         });
         html += t + "</table></div>";
         continue;
@@ -817,10 +819,17 @@
         });
       }
     }
-    if (p.comuna && !p.alcanceSlep) partes.push(`Trabaja en un establecimiento de educación pública de la comuna de ${p.comuna}` + (p.entorno ? `, entorno ${p.entorno.toLowerCase()}` : "") + ".");
+    const unEst = !p.alcanceSlep && (est || p.establecimiento);
+    const entorno = (est && est.entorno) || p.entorno || "";
+    if (unEst) partes.push(`Trabaja en UN establecimiento específico de educación pública` + ((est && est.comuna) || p.comuna ? ` de la comuna de ${(est && est.comuna) || p.comuna}` : "") +
+      (entorno ? `, entorno ${entorno.toLowerCase()}` : "") + (est && est.niveles ? `, niveles: ${est.niveles}` : "") + " (no en todo el Servicio Local).");
+    else if (p.comuna && !p.alcanceSlep) partes.push(`Trabaja en un establecimiento de educación pública de la comuna de ${p.comuna}` + (entorno ? `, entorno ${entorno.toLowerCase()}` : "") + ".");
     if (p.alcance) partes.push(`Quiere trabajar con: ${p.alcance.toLowerCase()}.`);
-    if (est && est.caracteristicas) partes.push(`Características del establecimiento (sin identificarlo): ${sinNombre(est.caracteristicas, est)}`);
+    if (est && est.caracteristicas) partes.push(`Características de SU establecimiento (sin identificarlo): ${sinNombre(est.caracteristicas, est)}`);
     const pei = contextoPEI(est); if (pei) partes.push(pei.trim());
+    if (unEst) partes.push("IMPORTANTE: responde SIEMPRE situado en ESTE establecimiento: usa sus características, niveles, datos y su PEI (misión, visión, sellos) para que la respuesta sea concreta para esa comunidad educativa. " +
+      "Los documentos del Servicio (PAL, PEL, normativa) úsalos como marco, pero extrae solo lo que aplica a este establecimiento; no respondas para todo el SLEP ni entregues listados o cifras de todos los establecimientos, " +
+      "salvo que la persona lo pida explícitamente o pregunte por otro establecimiento. Deduce el entorno (urbano o rural) de estos datos; no se lo preguntes.");
     return partes.length ? `\n\n### Contexto de quien consulta\n${partes.join(" ")} Adapta tus sugerencias a este rol, cargo y contexto, a la normativa vigente y, cuando exista, ` +
       "a la misión, visión y sellos del PEI, sin estereotipos. Para contextualizar, usa la realidad socioeconómica, comunitaria y natural del territorio; " +
       "no asumas ni repitas referencias geográficas puntuales (por ejemplo, un río) que la persona o el contexto no hayan indicado." : "";
@@ -1246,8 +1255,8 @@
     d.estId = est.id; d.establecimiento = est.nombre;
     if (est.comuna) d.comuna = est.comuna;
     guardarPerfil({ comuna: d.comuna, establecimiento: est.nombre, estId: est.id });
-    if (est.entorno) { d.entorno = est.entorno; guardarPerfil({ entorno: est.entorno }); trasUbicacion(); }
-    else preguntar("entorno");
+    d.entorno = est.entorno || ""; guardarPerfil({ entorno: est.entorno || "" });   // el entorno se deduce de los datos del establecimiento: no se pregunta
+    trasUbicacion();
   }
 
   function avanzarWizard(valor) {
@@ -1354,12 +1363,12 @@
       case "noEncontrado":
       case "listaEst": {
         if (valor.startsWith("id:")) { const est = ESTABLECIMIENTOS.find((e) => e.id === valor.slice(3)); if (est) { elegirEstablecimiento(est); return; } }
-        if (omitido) { guardarPerfil({ establecimiento: "", estId: "" }); preguntar(wizard.soloPerfil ? "alcance" : "entorno"); return; }
+        if (omitido) { guardarPerfil({ establecimiento: "", estId: "" }); trasUbicacion(); return; }
         if (valor === "reintentar") { wizard.paso = "establecimiento"; agregar("bot", `<p>Escribe el nombre de tu establecimiento (no importa si no recuerdas el nombre exacto).</p>`); return; }
         if (valor === "lista") { wizard.n--; preguntar("listaEst"); return; }
-        if (valor === "usar") { guardarPerfil({ establecimiento: wizard.buscado, estId: "" }); d.establecimiento = wizard.buscado; preguntar("entorno"); return; }
+        if (valor === "usar") { guardarPerfil({ establecimiento: wizard.buscado, estId: "" }); d.establecimiento = wizard.buscado; trasUbicacion(); return; }
         // Texto escrito: buscar con tolerancia a errores en TODAS las comunas (prioriza la elegida)
-        if (!ESTABLECIMIENTOS.length) { guardarPerfil({ establecimiento: valor, estId: "" }); d.establecimiento = valor; preguntar("entorno"); return; }
+        if (!ESTABLECIMIENTOS.length) { guardarPerfil({ establecimiento: valor, estId: "" }); d.establecimiento = valor; trasUbicacion(); return; }
         const res = buscarEstablecimiento(valor, d.comuna);
         wizard.buscado = valor; wizard.n--;
         if (res.length) {
@@ -1394,7 +1403,7 @@
     const lugar = (d.comuna
       ? `establecimiento de educación pública de la comuna de ${d.comuna} (Región del Biobío, Chile)`
       : "establecimiento de educación pública de la Región del Biobío, Chile") + (d.entorno ? `, entorno ${d.entorno.toLowerCase()}` : "");
-    const carEst = est && est.caracteristicas ? `\nCaracterísticas del establecimiento: ${est.caracteristicas}` : "";
+    const carEst = est && est.caracteristicas ? `\nCaracterísticas del establecimiento: ${sinNombre(est.caracteristicas, est)}` : "";
     let rolIA = t.rol, tarea = t.tarea, formato = t.formato, contexto, marco, restricciones, criterio, declaracion;
 
     if (t.curricular) {

@@ -1,7 +1,7 @@
 /* Service worker: permite instalar la app y usarla sin conexión (modo guías).
    Al publicar cambios, suba el número de VERSION para que los usuarios
    reciban la versión nueva. */
-const VERSION = "asistente-slep-v29";
+const VERSION = "asistente-slep-v30";
 const ARCHIVOS = [
   "./",
   "index.html",
